@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorldTime — Modern World Clock &amp; Calendar</title>
+    <!-- Premium Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="glass-bg"></div>
+    <div class="glow-orb glow-1"></div>
+    <div class="glow-orb glow-2"></div>
+
+    <main class="app-container">
+        <header class="app-header">
+            <div class="logo">
+                <i class="fa-solid fa-globe-americas logo-icon"></i>
+                <h1>WorldTime</h1>
+            </div>
+            <p class="subtitle">Drag, slide, and compare times across the globe</p>
+        </header>
+
+        <section class="controls-panel">
+            <div class="search-wrapper">
+                <div class="search-box">
+                    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                    <input type="text" id="tz-search" placeholder="Add timezone (e.g. London, EST, Tokyo)..." autocomplete="off">
+                    <button id="clear-search" class="icon-btn hide"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div id="autocomplete-list" class="autocomplete-dropdown hide"></div>
+            </div>
+
+            <div class="toolbar">
+                <div class="control-group">
+                    <label for="date-select"><i class="fa-regular fa-calendar"></i> Date</label>
+                    <input type="date" id="date-select">
+                </div>
+
+                <div class="control-group">
+                    <label><i class="fa-regular fa-clock"></i> Format</label>
+                    <div class="toggle-buttons">
+                        <button id="format-12h" class="toggle-btn active">12H</button>
+                        <button id="format-24h" class="toggle-btn">24H</button>
+                    </div>
+                </div>
+
+                <button id="share-btn" class="action-btn">
+                    <i class="fa-solid fa-share-nodes"></i> Share Link
+                </button>
+            </div>
+        </section>
+
+        <!-- Dynamic timezone list -->
+        <section id="tz-list" class="tz-list-container"></section>
+
+        <footer class="app-footer">
+            <p>Designed for web, mobile, and command line. Try <code class="curl-tip">curl time.jskw.dev/UTC/EST/CEST</code> in your terminal.</p>
+        </footer>
+    </main>
+
+    <!-- Script imports -->
+    <script src="/app.js"></script>
+</body>
+</html>
