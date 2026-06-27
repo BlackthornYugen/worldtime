@@ -513,7 +513,7 @@ func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor b
 		}
 
 		if isHalfHourOffset {
-			fmt.Fprintf(w, "%s     │", labelText)
+			fmt.Fprintf(w, "%s      ", labelText)
 		} else {
 			fmt.Fprintf(w, "%s │", labelText)
 		}
@@ -528,6 +528,9 @@ func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor b
 			sep := "│"
 			if useColor && offset == 0 {
 				sep = "\x1b[31m│\x1b[0m"
+			}
+			if isHalfHourOffset && i == hoursWindow-1 {
+				sep = ""
 			}
 			fmt.Fprintf(w, "%s%s", cell, sep)
 		}
