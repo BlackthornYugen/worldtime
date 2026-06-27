@@ -512,6 +512,14 @@ function render() {
     const firstTz = timezones[0].tz;
     const dateStr = selectedDate.toISOString().split('T')[0];
 
+    // Preserve scroll position for smooth centering
+    const oldScrolls = [];
+    if (window.innerWidth <= 1024) {
+        tzListContainer.querySelectorAll(".row-right").forEach(r => {
+            oldScrolls.push(r.scrollLeft);
+        });
+    }
+
     // Compute UTC time coordinates for 00:00 to 23:00 hours in the base (first) timezone
     const hourTimestamps = [];
     for (let h = 0; h < 24; h++) {
@@ -637,6 +645,19 @@ function render() {
             render();
         });
     });
+
+    // Restore old scroll positions immediately before the browser paints
+    if (window.innerWidth <= 1024) {
+        const newRows = tzListContainer.querySelectorAll(".row-right");
+        newRows.forEach((r, i) => {
+            if (i < oldScrolls.length) {
+                r.scrollLeft = oldScrolls[i];
+            } else if (oldScrolls.length > 0) {
+                // If a new row was added, sync it to the first row's scroll
+                r.scrollLeft = oldScrolls[0];
+            }
+        });
+    }
 
     // Center active hour on mobile layout
     centerActiveHours();
