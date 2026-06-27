@@ -518,7 +518,7 @@ func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor b
 			cell := formatCell(tTarget, isCurrent, nowInZone, useColor)
 
 			sep := "│"
-			if useColor && (offset == -1 || offset == 0) {
+			if useColor && offset == 0 {
 				sep = "\x1b[31m│\x1b[0m"
 			}
 			fmt.Fprintf(w, "%s%s", cell, sep)
@@ -566,9 +566,9 @@ func formatCell(tCell time.Time, isCurrent bool, baseDate time.Time, useColor bo
 				formatted = "  " + bracketed  // 2 spaces + 5 chars = 7 chars
 			}
 		} else {
-			// Standard bracketed current hour
+			// Standard bracketed current hour (centered at index 2 matching standard)
 			if len(bracketed) == 4 {
-				formatted = " " + bracketed + "  " // 1 space + 4 chars + 2 spaces = 7 chars
+				formatted = "  " + bracketed + " " // 2 spaces + 4 chars + 1 space = 7 chars
 			} else {
 				formatted = " " + bracketed + " "  // 1 space + 5 chars + 1 space = 7 chars
 			}
@@ -576,18 +576,18 @@ func formatCell(tCell time.Time, isCurrent bool, baseDate time.Time, useColor bo
 	} else {
 		// Normal hour (or colored current hour which has no brackets)
 		if isHalfHour {
-			// Shifted 30-minute offset hour
+			// Shifted 30-minute offset hour (digits start at index 5, which is +3 relative to standard index 2)
 			if len(cellContent) == 2 {
-				formatted = "    " + cellContent + " " // 4 spaces + 2 digits + 1 space = 7 chars
+				formatted = "     " + cellContent // 5 spaces + 2 digits = 7 chars
 			} else {
-				formatted = "    " + cellContent       // 4 spaces + 3 chars = 7 chars
+				formatted = "    " + cellContent  // 4 spaces + 3 chars = 7 chars
 			}
 		} else {
-			// Standard 00m hour
+			// Standard 00m hour (digits start at index 2, making it centered)
 			if len(cellContent) == 2 {
-				formatted = " " + cellContent + "    " // 1 space + 2 digits + 4 spaces = 7 chars
+				formatted = "  " + cellContent + "   " // 2 spaces + 2 digits + 3 spaces = 7 chars
 			} else {
-				formatted = " " + cellContent + "   "  // 1 space + 3 chars + 3 spaces = 7 chars
+				formatted = "  " + cellContent + "  "  // 2 spaces + 3 chars + 2 spaces = 7 chars
 			}
 		}
 	}
