@@ -514,13 +514,11 @@ function render() {
         const currentMinPad = String(currentParts.minute).padStart(2, '0');
         
         let displayTime = "";
-        let displayPeriod = "";
         if (is12hFormat) {
             let h12 = currentParts.hour % 12;
             if (h12 === 0) h12 = 12;
             const period = currentParts.hour >= 12 ? "PM" : "AM";
-            displayTime = `${String(h12).padStart(2, '0')}:${currentMinPad}`;
-            displayPeriod = ` ${period}`;
+            displayTime = `${String(h12).padStart(2, '0')}:${currentMinPad} ${period}`;
         } else {
             displayTime = `${currentHourPad}:${currentMinPad}`;
         }
@@ -585,14 +583,11 @@ function render() {
                     <i class="fa-solid fa-grip-vertical drag-handle"></i>
                     <div class="row-meta-info">
                         <div class="zone-details">
+                            <span class="current-time-text">${displayTime}</span>
                             <span class="zone-name" title="${tz}">${friendlyName}</span>
                             <span class="zone-offset">(${relativeOffsetVal})</span>
                         </div>
                         <div class="zone-date">${dateText}</div>
-                    </div>
-                    <div class="row-time-display">
-                        <span class="current-time-text">${displayTime}</span>
-                        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight:600;">${displayPeriod}</span>
                     </div>
                     <button class="delete-btn" onclick="removeTimezone(${index})" title="Delete timezone">
                         <i class="fa-solid fa-trash-can"></i>
@@ -699,7 +694,6 @@ setInterval(() => {
         const row = rows[index];
         if (!row) return;
         const timeEl = row.querySelector(".current-time-text");
-        const periodEl = row.querySelector(".row-time-display span:nth-child(2)");
         
         const nowUTC = new Date();
         const currentParts = getTzParts(nowUTC, item.tz);
@@ -707,22 +701,17 @@ setInterval(() => {
         const currentMinPad = String(currentParts.minute).padStart(2, '0');
         
         let displayTime = "";
-        let displayPeriod = "";
         if (is12hFormat) {
             let h12 = currentParts.hour % 12;
             if (h12 === 0) h12 = 12;
             const period = currentParts.hour >= 12 ? "PM" : "AM";
-            displayTime = `${String(h12).padStart(2, '0')}:${currentMinPad}`;
-            displayPeriod = ` ${period}`;
+            displayTime = `${String(h12).padStart(2, '0')}:${currentMinPad} ${period}`;
         } else {
             displayTime = `${currentHourPad}:${currentMinPad}`;
         }
         
         if (timeEl && timeEl.textContent !== displayTime) {
             timeEl.textContent = displayTime;
-        }
-        if (periodEl && periodEl.textContent !== displayPeriod) {
-            periodEl.textContent = displayPeriod;
         }
     });
 }, 15000);
