@@ -109,3 +109,15 @@ go run . -f Bangalore Waterloo Bangalore
 # Disable colors in stdout
 go run . -c never Waterloo Bangalore
 ```
+
+---
+
+## CI/CD GitHub Action Setup
+
+The repository contains a GitHub Actions workflow in `.github/workflows/publish.yml` that builds and publishes the statically compiled Docker container image on push to the `main` branch.
+
+It publishes to **GitHub Container Registry (GHCR)** at `ghcr.io/${{ github.repository }}/worldtime`. 
+
+Authentication is fully automated using the built-in `${{ secrets.GITHUB_TOKEN }}` and `${{ github.actor }}` permissions. No manual secrets configuration is required.
+
+
