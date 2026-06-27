@@ -637,6 +637,31 @@ function render() {
             render();
         });
     });
+
+    // Center active hour on mobile layout
+    centerActiveHours();
+}
+
+// Center the active hour in the middle of the screen for small mobile layouts
+function centerActiveHours() {
+    // Only applies if the layout allows scrolling (e.g. mobile)
+    if (window.innerWidth > 1024) return;
+    
+    // We defer centering slightly to ensure DOM is fully painted and dimensions are accurate
+    requestAnimationFrame(() => {
+        const rowRights = tzListContainer.querySelectorAll(".row-right");
+        rowRights.forEach(container => {
+            const activeCell = container.querySelector(".active-hour");
+            if (activeCell) {
+                const containerCenter = container.clientWidth / 2;
+                const cellCenter = activeCell.offsetLeft + (activeCell.clientWidth / 2);
+                container.scrollTo({
+                    left: cellCenter - containerCenter,
+                    behavior: 'smooth'
+                });
+            }
+        });
+    });
 }
 
 // Drag & Drop reorder implementation
