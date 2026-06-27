@@ -351,8 +351,20 @@ function showToast(msg) {
     toast.innerHTML = `<i class="fa-solid fa-circle-check" style="color: var(--accent-teal)"></i> ${msg}`;
     toast.classList.add("show");
     setTimeout(() => {
-        toast.classList.remove("show");
-    }, 2500);
+        toast.classList.remove('show');
+    }, 3000);
+}
+
+// Rename timezone
+function renameTimezone(index) {
+    const item = timezones[index];
+    const newName = prompt("Enter a new display name for this location:", item.friendlyName);
+    
+    if (newName !== null && newName.trim() !== "") {
+        item.friendlyName = newName.trim();
+        updateUrl();
+        render();
+    }
 }
 
 let searchTimeout = null;
@@ -587,7 +599,7 @@ function render() {
             <div class="timezone-row" style="view-transition-name: tz-row-${index}" data-searchterm="${item.searchTerm || item.friendlyName || item.tz}">
                 <div class="row-left">
                     <i class="fa-solid fa-grip-vertical drag-handle"></i>
-                    <div class="row-meta-info">
+                    <div class="row-meta-info" style="display: flex; gap: 0.5rem; align-items: center; flex: 1;">
                         <div class="zone-details">
                             <span class="current-time-text">${displayTime}</span>
                             <span class="zone-name" title="${tz}">${friendlyName}</span>
@@ -595,6 +607,9 @@ function render() {
                         </div>
                         <div class="zone-date">${dateText}</div>
                     </div>
+                    <button class="rename-btn" onclick="renameTimezone(${index})" title="Rename timezone">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
                     <button class="delete-btn" onclick="removeTimezone(${index})" title="Delete timezone">
                         <i class="fa-solid fa-trash-can"></i>
                     </button>

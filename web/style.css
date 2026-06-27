@@ -487,7 +487,7 @@ body {
     flex-shrink: 0;
 }
 
-.delete-btn {
+.delete-btn, .rename-btn {
     opacity: 0;
     color: var(--text-muted);
     cursor: pointer;
@@ -502,13 +502,19 @@ body {
     justify-content: center;
 }
 
-.timezone-row:hover .delete-btn {
+.timezone-row:hover .delete-btn,
+.timezone-row:hover .rename-btn {
     opacity: 1;
 }
 
 .delete-btn:hover {
     color: #ef4444;
     background: rgba(239, 68, 68, 0.1);
+}
+
+.rename-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.1);
 }
 
 /* Row Right Card (24 Hours Timeline) */
