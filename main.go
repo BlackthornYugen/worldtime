@@ -481,6 +481,10 @@ func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor b
 		nowInZone := time.Now().In(z.Location)
 		dateStr := nowInZone.Format("Jan 02")
 
+		// Calculate minute offset relative to the first (base) zone
+		minuteDiff := (nowInZone.Minute() - now.Minute() + 60) % 60
+		isHalfHourOffset := (minuteDiff == 30)
+
 		// Get current offset string
 		_, offsetSec := nowInZone.Zone()
 		offsetHours := float64(offsetSec) / 3600.0
@@ -508,7 +512,11 @@ func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor b
 			labelText = labelText[:29] + "..."
 		}
 
-		fmt.Fprintf(w, "%s │", labelText)
+		if isHalfHourOffset {
+			fmt.Fprintf(w, "%s     │", labelText)
+		} else {
+			fmt.Fprintf(w, "%s │", labelText)
+		}
 
 		for i := 0; i < hoursWindow; i++ {
 			offset := offsetStart + i
@@ -552,43 +560,22 @@ func formatCell(tCell time.Time, isCurrent bool, baseDate time.Time, useColor bo
 		cellContent += "-"
 	}
 
-	isHalfHour := (tCell.Minute() == 30)
 	var formatted string
 
 	if isCurrent && !useColor {
-		// Non-colored current hour needs brackets
+		// Non-colored current hour needs brackets (centered at index 2 matching standard)
 		bracketed := fmt.Sprintf("[%s]", cellContent)
-		if isHalfHour {
-			// Shifted bracketed current hour
-			if len(bracketed) == 4 {
-				formatted = "   " + bracketed // 3 spaces + 4 chars = 7 chars
-			} else {
-				formatted = "  " + bracketed  // 2 spaces + 5 chars = 7 chars
-			}
+		if len(bracketed) == 4 {
+			formatted = "  " + bracketed + " " // 2 spaces + 4 chars + 1 space = 7 chars
 		} else {
-			// Standard bracketed current hour (centered at index 2 matching standard)
-			if len(bracketed) == 4 {
-				formatted = "  " + bracketed + " " // 2 spaces + 4 chars + 1 space = 7 chars
-			} else {
-				formatted = " " + bracketed + " "  // 1 space + 5 chars + 1 space = 7 chars
-			}
+			formatted = " " + bracketed + " "  // 1 space + 5 chars + 1 space = 7 chars
 		}
 	} else {
-		// Normal hour (or colored current hour which has no brackets)
-		if isHalfHour {
-			// Shifted 30-minute offset hour (digits start at index 5, which is +3 relative to standard index 2)
-			if len(cellContent) == 2 {
-				formatted = "     " + cellContent // 5 spaces + 2 digits = 7 chars
-			} else {
-				formatted = "    " + cellContent  // 4 spaces + 3 chars = 7 chars
-			}
+		// Normal hour (or colored current hour which has no brackets, centered at index 2)
+		if len(cellContent) == 2 {
+			formatted = "  " + cellContent + "   " // 2 spaces + 2 digits + 3 spaces = 7 chars
 		} else {
-			// Standard 00m hour (digits start at index 2, making it centered)
-			if len(cellContent) == 2 {
-				formatted = "  " + cellContent + "   " // 2 spaces + 2 digits + 3 spaces = 7 chars
-			} else {
-				formatted = "  " + cellContent + "  "  // 2 spaces + 3 chars + 2 spaces = 7 chars
-			}
+			formatted = "  " + cellContent + "  "  // 2 spaces + 3 chars + 2 spaces = 7 chars
 		}
 	}
 
