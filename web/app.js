@@ -573,23 +573,25 @@ function render() {
 
             let cellNum = cellHour;
             let cellPeriod = "";
+            let cellMinText = "";
             if (is12hFormat) {
                 cellNum = cellHour % 12;
                 if (cellNum === 0) cellNum = 12;
                 cellPeriod = cellHour >= 12 ? "pm" : "am";
                 if (cellMin !== 0) {
-                    cellNum = `${cellNum}:${String(cellMin).padStart(2, '0')}`;
+                    cellMinText = String(cellMin).padStart(2, '0');
                 }
             } else {
                 cellNum = String(cellHour).padStart(2, '0');
                 if (cellMin !== 0) {
-                    cellNum = `${cellNum}:${String(cellMin).padStart(2, '0')}`;
+                    cellMinText = String(cellMin).padStart(2, '0');
                 }
             }
 
             hoursHTML += `
                 <div class="hour-cell ${typeClass} ${activeClass} ${boundaryClass}" data-col="${col}">
                     <span class="hour-number">${cellNum}</span>
+                    ${cellMinText ? `<span class="hour-minute">${cellMinText}</span>` : ""}
                     <span class="hour-period">${cellPeriod}</span>
                 </div>
             `;

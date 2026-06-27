@@ -558,6 +558,14 @@ body {
     margin-bottom: 2px;
 }
 
+.hour-minute {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--accent-teal);
+    margin-top: -6px;
+    margin-bottom: 2px;
+}
+
 .hour-period {
     font-size: 0.7rem;
     text-transform: uppercase;
