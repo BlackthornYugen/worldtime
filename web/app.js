@@ -46,53 +46,8 @@ const AbbreviationMap = {
     "wat": "Africa/Lagos",
 };
 
-// Autocomplete database of common timezone abbreviations and cities
-const SearchDatabase = [
-    { name: "UTC", zone: "UTC", desc: "Coordinated Universal Time" },
-    { name: "GMT", zone: "Etc/GMT", desc: "Greenwich Mean Time" },
-    { name: "EST", zone: "America/New_York", desc: "Eastern Standard Time" },
-    { name: "EDT", zone: "America/New_York", desc: "Eastern Daylight Time" },
-    { name: "CST", zone: "America/Chicago", desc: "Central Standard Time" },
-    { name: "CDT", zone: "America/Chicago", desc: "Central Daylight Time" },
-    { name: "MST", zone: "America/Denver", desc: "Mountain Standard Time" },
-    { name: "MDT", zone: "America/Denver", desc: "Mountain Daylight Time" },
-    { name: "PST", zone: "America/Los_Angeles", desc: "Pacific Standard Time" },
-    { name: "PDT", zone: "America/Los_Angeles", desc: "Pacific Daylight Time" },
-    { name: "CEST", zone: "Europe/Paris", desc: "Central European Summer Time" },
-    { name: "CET", zone: "Europe/Paris", desc: "Central European Time" },
-    { name: "BST", zone: "Europe/London", desc: "British Summer Time" },
-    { name: "JST", zone: "Asia/Tokyo", desc: "Japan Standard Time" },
-    { name: "IST", zone: "Asia/Kolkata", desc: "India Standard Time" },
-    { name: "AEST", zone: "Australia/Sydney", desc: "Australian Eastern Standard Time" },
-    { name: "AEDT", zone: "Australia/Sydney", desc: "Australian Eastern Daylight Time" },
-    { name: "New York", zone: "America/New_York", desc: "Eastern Time (US)" },
-    { name: "Los Angeles", zone: "America/Los_Angeles", desc: "Pacific Time (US)" },
-    { name: "Chicago", zone: "America/Chicago", desc: "Central Time (US)" },
-    { name: "Denver", zone: "America/Denver", desc: "Mountain Time (US)" },
-    { name: "Phoenix", zone: "America/Phoenix", desc: "Mountain Standard Time (No DST)" },
-    { name: "Anchorage", zone: "America/Anchorage", desc: "Alaska Time" },
-    { name: "Honolulu", zone: "Pacific/Honolulu", desc: "Hawaii Standard Time" },
-    { name: "London", zone: "Europe/London", desc: "London, GMT/BST" },
-    { name: "Paris", zone: "Europe/Paris", desc: "Paris, CET/CEST" },
-    { name: "Berlin", zone: "Europe/Berlin", desc: "Berlin, CET/CEST" },
-    { name: "Rome", zone: "Europe/Rome", desc: "Rome, CET/CEST" },
-    { name: "Athens", zone: "Europe/Athens", desc: "Athens, EET/EEST" },
-    { name: "Moscow", zone: "Europe/Moscow", desc: "Moscow Time" },
-    { name: "Tokyo", zone: "Asia/Tokyo", desc: "Japan, Tokyo" },
-    { name: "Seoul", zone: "Asia/Seoul", desc: "Korea, Seoul" },
-    { name: "Singapore", zone: "Asia/Singapore", desc: "Singapore" },
-    { name: "Hong Kong", zone: "Asia/Hong_Kong", desc: "Hong Kong" },
-    { name: "Shanghai", zone: "Asia/Shanghai", desc: "China, Beijing" },
-    { name: "Kolkata", zone: "Asia/Kolkata", desc: "India Standard Time" },
-    { name: "Sydney", zone: "Australia/Sydney", desc: "Sydney, AEST/AEDT" },
-    { name: "Melbourne", zone: "Australia/Melbourne", desc: "Melbourne, AEST/AEDT" },
-    { name: "Perth", zone: "Australia/Perth", desc: "Perth, AWST" },
-    { name: "Auckland", zone: "Pacific/Auckland", desc: "New Zealand, Auckland" },
-    { name: "Dubai", zone: "Asia/Dubai", desc: "Gulf Standard Time" },
-    { name: "Cairo", zone: "Africa/Cairo", desc: "Egypt, Cairo" },
-    { name: "Johannesburg", zone: "Africa/Johannesburg", desc: "South Africa" },
-    { name: "Sao Paulo", zone: "America/Sao_Paulo", desc: "Brazil, Sao Paulo" },
-];
+// Autocomplete searches are queried dynamically via the backend API /api/search
+
 
 // App state
 let timezones = []; // Array of objects: { tz: string, friendlyName: string }
@@ -381,9 +336,10 @@ function showToast(msg) {
     }, 2500);
 }
 
-// Handle fuzzy suggestions as the user types
+let searchTimeout = null;
+
 function handleSearchInput() {
-    const val = tzSearch.value.trim().toLowerCase();
+    const val = tzSearch.value.trim();
     if (!val) {
         clearSearch.classList.add("hide");
         autocompleteList.classList.add("hide");
@@ -391,49 +347,56 @@ function handleSearchInput() {
     }
     clearSearch.classList.remove("hide");
 
-    // Filter database
-    let matches = SearchDatabase.filter(item => {
-        return item.name.toLowerCase().includes(val) || 
-               item.zone.toLowerCase().includes(val) || 
-               item.desc.toLowerCase().includes(val);
-    }).slice(0, 8); // limit results
-
-    // If input represents a valid timezone that isn't in database, offer it directly
-    const normalizedVal = normalizeTzName(val);
-    if (isValidTimeZone(normalizedVal) && !matches.some(m => m.zone.toLowerCase() === normalizedVal.toLowerCase())) {
-        matches.unshift({
-            name: normalizedVal.split('/').pop().replace(/_/g, ' '),
-            zone: normalizedVal,
-            desc: "Custom Timezone Region"
-        });
+    // Debounce the search query to the backend
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
     }
 
-    if (matches.length === 0) {
-        autocompleteList.innerHTML = `<div class="autocomplete-item"><span class="zone-title">No timezones found</span></div>`;
-    } else {
-        autocompleteList.innerHTML = matches.map(item => `
-            <div class="autocomplete-item" data-zone="${item.zone}" data-name="${item.name}">
-                <div>
-                    <span class="zone-title">${item.name}</span>
-                    <span class="zone-sub">${item.desc}</span>
-                </div>
-                <i class="fa-solid fa-plus" style="color: var(--accent-teal)"></i>
-            </div>
-        `).join("");
-
-        // Attach click listeners to suggestions
-        const items = autocompleteList.querySelectorAll(".autocomplete-item");
-        items.forEach(el => {
-            el.addEventListener("click", () => {
-                const zone = el.getAttribute("data-zone");
-                const name = el.getAttribute("data-name");
-                if (zone && name) {
-                    addTimezone(zone, name);
+    searchTimeout = setTimeout(() => {
+        fetch(`/api/search?q=${encodeURIComponent(val)}`)
+            .then(res => res.json())
+            .then(matches => {
+                // If input represents a valid timezone that isn't in database, offer it directly
+                const normalizedVal = normalizeTzName(val);
+                if (isValidTimeZone(normalizedVal) && !matches.some(m => m.zone.toLowerCase() === normalizedVal.toLowerCase())) {
+                    matches.unshift({
+                        name: normalizedVal.split('/').pop().replace(/_/g, ' '),
+                        zone: normalizedVal,
+                        desc: "Custom Timezone Region"
+                    });
                 }
+
+                if (matches.length === 0) {
+                    autocompleteList.innerHTML = `<div class="autocomplete-item"><span class="zone-title">No timezones found</span></div>`;
+                } else {
+                    autocompleteList.innerHTML = matches.map(item => `
+                        <div class="autocomplete-item" data-zone="${item.zone}" data-name="${item.name}">
+                            <div>
+                                <span class="zone-title">${item.name}</span>
+                                <span class="zone-sub">${item.desc}</span>
+                            </div>
+                            <i class="fa-solid fa-plus" style="color: var(--accent-teal)"></i>
+                        </div>
+                    `).join("");
+
+                    // Attach click listeners to suggestions
+                    const items = autocompleteList.querySelectorAll(".autocomplete-item");
+                    items.forEach(el => {
+                        el.addEventListener("click", () => {
+                            const zone = el.getAttribute("data-zone");
+                            const name = el.getAttribute("data-name");
+                            if (zone && name) {
+                                addTimezone(zone, name);
+                            }
+                        });
+                    });
+                }
+                autocompleteList.classList.remove("hide");
+            })
+            .catch(err => {
+                console.error("Error fetching search results:", err);
             });
-        });
-    }
-    autocompleteList.classList.remove("hide");
+    }, 150);
 }
 
 // Add timezone to list

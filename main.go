@@ -201,6 +201,9 @@ func runServer() {
 	}
 	fileServer := http.FileServer(http.FS(subFS))
 
+	// Register API endpoints before catch-all
+	http.HandleFunc("/api/search", handleSearchAPI)
+
 	// Main request handler
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -899,4 +902,161 @@ func getHourColor(t time.Time) string {
 		return "\x1b[36m" // Light Blue (Cyan) (Morning)
 	}
 	return "\x1b[34m" // Dark Blue (Night)
+}
+
+type SearchResult struct {
+	Name string `json:"name"`
+	Zone string `json:"zone"`
+	Desc string `json:"desc"`
+}
+
+func handleSearchAPI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	q := r.URL.Query().Get("q")
+	results := searchCities(q)
+	if results == nil {
+		results = []SearchResult{}
+	}
+	json.NewEncoder(w).Encode(results)
+}
+
+func searchCities(query string) []SearchResult {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return nil
+	}
+
+	var results []SearchResult
+	seen := make(map[string]bool)
+
+	// 1. Try abbreviation match first
+	if ianaZone, exists := AbbreviationToIANA[q]; exists {
+		res := SearchResult{
+			Name: strings.ToUpper(q),
+			Zone: ianaZone,
+			Desc: "Timezone Abbreviation",
+		}
+		results = append(results, res)
+		seen[ianaZone+"#"+res.Name] = true
+	}
+
+	qClean := strings.ReplaceAll(q, "+", " ")
+	qClean = strings.ReplaceAll(q, ",", " ")
+	tokens := strings.Fields(qClean)
+	if len(tokens) == 0 {
+		return results
+	}
+
+	var exactMatches []SearchResult
+	var prefixMatches []SearchResult
+	var fuzzyMatches []SearchResult
+
+	for _, c := range cities {
+		cName := strings.ToLower(c.Name)
+		cASCII := strings.ToLower(c.ASCII)
+
+		// Format description
+		desc := c.Country
+		if c.Region != "" {
+			desc = c.Region + ", " + c.Country
+		}
+
+		// Pass 1: Exact matches
+		if cName == qClean || cASCII == qClean {
+			key := c.TZ + "#" + c.Name
+			if !seen[key] {
+				exactMatches = append(exactMatches, SearchResult{
+					Name: c.Name,
+					Zone: c.TZ,
+					Desc: desc,
+				})
+				seen[key] = true
+			}
+			continue
+		}
+
+		// Pass 2: Prefix matches
+		if strings.HasPrefix(cName, qClean) || strings.HasPrefix(cASCII, qClean) {
+			key := c.TZ + "#" + c.Name
+			if !seen[key] {
+				prefixMatches = append(prefixMatches, SearchResult{
+					Name: c.Name,
+					Zone: c.TZ,
+					Desc: desc,
+				})
+				seen[key] = true
+			}
+			continue
+		}
+
+		// Pass 3: Token matching (fuzzy)
+		allMatched := true
+		cCountry := strings.ToLower(c.Country)
+		cRegion := strings.ToLower(c.Region)
+
+		for _, token := range tokens {
+			matched := false
+			// Check city name / ascii at word level
+			nameWords := strings.Fields(strings.ReplaceAll(cName, "-", " "))
+			for _, w := range nameWords {
+				if strings.HasPrefix(w, token) {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				asciiWords := strings.Fields(strings.ReplaceAll(cASCII, "-", " "))
+				for _, w := range asciiWords {
+					if strings.HasPrefix(w, token) {
+						matched = true
+						break
+					}
+				}
+			}
+			if matched {
+				// fine
+			} else if cCountry == token {
+				matched = true
+			} else if token == "us" || token == "usa" || token == "america" {
+				if c.Country == "US" { matched = true }
+			} else if token == "ca" || token == "canada" {
+				if c.Country == "CA" { matched = true }
+			} else if token == "gb" || token == "uk" || token == "united kingdom" {
+				if c.Country == "GB" { matched = true }
+			} else {
+				regionWords := strings.Fields(strings.ReplaceAll(cRegion, "-", " "))
+				for _, w := range regionWords {
+					if strings.HasPrefix(w, token) {
+						matched = true
+						break
+					}
+				}
+			}
+			if !matched {
+				allMatched = false
+				break
+			}
+		}
+
+		if allMatched {
+			key := c.TZ + "#" + c.Name
+			if !seen[key] {
+				fuzzyMatches = append(fuzzyMatches, SearchResult{
+					Name: c.Name,
+					Zone: c.TZ,
+					Desc: desc,
+				})
+				seen[key] = true
+			}
+		}
+	}
+
+	results = append(results, exactMatches...)
+	results = append(results, prefixMatches...)
+	results = append(results, fuzzyMatches...)
+
+	if len(results) > 10 {
+		results = results[:10]
+	}
+	return results
 }
