@@ -50,6 +50,7 @@ func main() {
 	var serverFlag bool
 	var focusFlag string
 	var colorFlag string
+	var compactFlag bool
 
 	flag.BoolVar(&serverFlag, "server", false, "Start HTTP server mode")
 	flag.BoolVar(&serverFlag, "s", false, "Start HTTP server mode (shorthand)")
@@ -57,6 +58,8 @@ func main() {
 	flag.StringVar(&focusFlag, "f", "", "Timezone or city name to focus the comparison grid around (shorthand)")
 	flag.StringVar(&colorFlag, "color", "auto", "ANSI color output: auto (default), always, never")
 	flag.StringVar(&colorFlag, "c", "auto", "ANSI color output (shorthand)")
+	flag.BoolVar(&compactFlag, "compact", false, "Enable compact mode (smaller cells and no blank lines)")
+	flag.BoolVar(&compactFlag, "p", false, "Enable compact mode (shorthand)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of worldtime:\n")
@@ -78,10 +81,10 @@ func main() {
 		return
 	}
 
-	runCLI(focusFlag, colorFlag, flag.Args())
+	runCLI(focusFlag, colorFlag, compactFlag, flag.Args())
 }
 
-func runCLI(focusFlag string, colorFlag string, args []string) {
+func runCLI(focusFlag string, colorFlag string, compact bool, args []string) {
 	var zones []ZoneInfo
 	var resolvedLocs []*time.Location
 
@@ -174,7 +177,7 @@ func runCLI(focusFlag string, colorFlag string, args []string) {
 		}
 	}
 
-	renderPlaintextTimeline(os.Stdout, focusLoc, zones, useColor)
+	renderPlaintextTimeline(os.Stdout, focusLoc, zones, useColor, compact)
 }
 
 func runServer() {
@@ -549,7 +552,8 @@ func handleQueryCurl(w http.ResponseWriter, r *http.Request, tzs []string, frien
 	contentType, useColor := detectPlaintextContentTypeAndColorPreference(r)
 	w.Header().Set("Content-Type", contentType)
 	focusLoc := getFocusLocation(r, zones)
-	renderPlaintextTimeline(w, focusLoc, zones, useColor)
+	compact := (r.URL.Query().Get("compact") == "true" || r.URL.Query().Get("compact") == "1")
+	renderPlaintextTimeline(w, focusLoc, zones, useColor, compact)
 }
 
 // handleDefaultCurl renders table for root requests with default zones.
@@ -574,7 +578,8 @@ func handleDefaultCurl(w http.ResponseWriter, r *http.Request) {
 	contentType, useColor := detectPlaintextContentTypeAndColorPreference(r)
 	w.Header().Set("Content-Type", contentType)
 	focusLoc := getFocusLocation(r, zones)
-	renderPlaintextTimeline(w, focusLoc, zones, useColor)
+	compact := (r.URL.Query().Get("compact") == "true" || r.URL.Query().Get("compact") == "1")
+	renderPlaintextTimeline(w, focusLoc, zones, useColor, compact)
 }
 
 // detectPlaintextContentTypeAndColorPreference inspects the Accept header to determine:
@@ -669,7 +674,7 @@ func getFocusLocation(r *http.Request, zones []ZoneInfo) *time.Location {
 }
 
 // renderPlaintextTimeline prints the table to the writer.
-func renderPlaintextTimeline(w io.Writer, focusLoc *time.Location, zones []ZoneInfo, useColor bool) {
+func renderPlaintextTimeline(w io.Writer, focusLoc *time.Location, zones []ZoneInfo, useColor bool, compact bool) {
 
 	// Base time is the start of the current day in the focused timezone
 	now := time.Now().In(focusLoc)
@@ -683,7 +688,12 @@ func renderPlaintextTimeline(w io.Writer, focusLoc *time.Location, zones []ZoneI
 		focusFriendly = zones[0].FriendlyName
 	}
 	fmt.Fprintf(w, "World Time Comparison (Focus: %s) — %s\n", focusFriendly, now.Format("Monday, Jan 2, 2006"))
-	fmt.Fprintln(w, strings.Repeat("—", 226))
+
+	gridLineRepeat := 226
+	if compact {
+		gridLineRepeat = 130
+	}
+	fmt.Fprintln(w, strings.Repeat("—", gridLineRepeat))
 
 	for _, z := range zones {
 		nowInZone := time.Now().In(z.Location)
@@ -720,7 +730,11 @@ func renderPlaintextTimeline(w io.Writer, focusLoc *time.Location, zones []ZoneI
 		labelText := fmt.Sprintf("%s %s (%s)", timeStr, z.FriendlyName, offsetStr)
 		labelPadding := 32
 		if isHalfHourOffset {
-			labelPadding = 29
+			if compact {
+				labelPadding = 31
+			} else {
+				labelPadding = 29
+			}
 		}
 		if len(labelText) < labelPadding {
 			labelText = labelText + strings.Repeat(" ", labelPadding-len(labelText))
@@ -750,7 +764,7 @@ func renderPlaintextTimeline(w io.Writer, focusLoc *time.Location, zones []ZoneI
 			tTargetInZone := tTarget.In(z.Location)
 
 			isCurrent := (tTargetInZone.Hour() == nowInZone.Hour() && tTargetInZone.Day() == nowInZone.Day())
-			cell := formatCell(tTargetInZone, isCurrent, nowInZone, useColor)
+			cell := formatCell(tTargetInZone, isCurrent, nowInZone, useColor, compact)
 
 			sep := "│"
 			if useColor && isCurrent {
@@ -761,12 +775,16 @@ func renderPlaintextTimeline(w io.Writer, focusLoc *time.Location, zones []ZoneI
 			}
 			fmt.Fprintf(w, "%s%s", cell, sep)
 		}
-		fmt.Fprintln(w, "\n")
+		if compact {
+			fmt.Fprintln(w)
+		} else {
+			fmt.Fprintln(w, "\n")
+		}
 	}
 }
 
 // formatCell formats the time for the ASCII grid cell, optionally colored with ANSI escape codes.
-func formatCell(tCell time.Time, isCurrent bool, baseDate time.Time, useColor bool) string {
+func formatCell(tCell time.Time, isCurrent bool, baseDate time.Time, useColor bool, compact bool) string {
 	// Format hour only (no minutes)
 	timeStr := tCell.Format("15")
 
@@ -792,20 +810,32 @@ func formatCell(tCell time.Time, isCurrent bool, baseDate time.Time, useColor bo
 
 	var formatted string
 
-	if isCurrent && !useColor {
-		// Non-colored current hour needs brackets (centered at index 2 matching standard)
-		bracketed := fmt.Sprintf("[%s]", cellContent)
-		if len(bracketed) == 4 {
-			formatted = "  " + bracketed + " " // 2 spaces + 4 chars + 1 space = 7 chars
+	if compact {
+		if isCurrent && !useColor {
+			formatted = fmt.Sprintf("[%s]", cellContent)
 		} else {
-			formatted = " " + bracketed + " "  // 1 space + 5 chars + 1 space = 7 chars
+			if len(cellContent) == 2 {
+				formatted = " " + cellContent
+			} else {
+				formatted = cellContent
+			}
 		}
 	} else {
-		// Normal hour (or colored current hour which has no brackets, centered at index 2)
-		if len(cellContent) == 2 {
-			formatted = "  " + cellContent + "   " // 2 spaces + 2 digits + 3 spaces = 7 chars
+		if isCurrent && !useColor {
+			// Non-colored current hour needs brackets (centered at index 2 matching standard)
+			bracketed := fmt.Sprintf("[%s]", cellContent)
+			if len(bracketed) == 4 {
+				formatted = "  " + bracketed + " " // 2 spaces + 4 chars + 1 space = 7 chars
+			} else {
+				formatted = " " + bracketed + " "  // 1 space + 5 chars + 1 space = 7 chars
+			}
 		} else {
-			formatted = "  " + cellContent + "  "  // 2 spaces + 3 chars + 2 spaces = 7 chars
+			// Normal hour (or colored current hour which has no brackets, centered at index 2)
+			if len(cellContent) == 2 {
+				formatted = "  " + cellContent + "   " // 2 spaces + 2 digits + 3 spaces = 7 chars
+			} else {
+				formatted = "  " + cellContent + "  "  // 2 spaces + 3 chars + 2 spaces = 7 chars
+			}
 		}
 	}
 
