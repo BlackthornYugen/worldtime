@@ -86,3 +86,26 @@ If you prefer deploying purely via the command-line interface:
    ```bash
    kubectl expose deployment worldtime --port=80 --target-port=8080
    ```
+
+---
+
+## Standalone CLI Mode Usage
+
+You can run the binary directly in your terminal to print comparison timelines directly to stdout and exit:
+
+```bash
+# Start the web server (Default behavior when no arguments are provided)
+go run .
+
+# Force start the web server
+go run . --server
+
+# Compare Waterloo and Bangalore (Kolkata) using the first city as focus
+go run . Waterloo Bangalore
+
+# Compare Waterloo and Bangalore (Kolkata) focusing on Bangalore
+go run . -f Bangalore Waterloo Bangalore
+
+# Disable colors in stdout
+go run . -c never Waterloo Bangalore
+```

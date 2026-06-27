@@ -3,7 +3,9 @@ package main
 import (
 	"embed"
 	"encoding/json"
+	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -45,6 +47,137 @@ func init() {
 }
 
 func main() {
+	var serverFlag bool
+	var focusFlag string
+	var colorFlag string
+
+	flag.BoolVar(&serverFlag, "server", false, "Start HTTP server mode")
+	flag.BoolVar(&serverFlag, "s", false, "Start HTTP server mode (shorthand)")
+	flag.StringVar(&focusFlag, "focus", "", "Timezone or city name to focus the comparison grid around")
+	flag.StringVar(&focusFlag, "f", "", "Timezone or city name to focus the comparison grid around (shorthand)")
+	flag.StringVar(&colorFlag, "color", "auto", "ANSI color output: auto (default), always, never")
+	flag.StringVar(&colorFlag, "c", "auto", "ANSI color output (shorthand)")
+
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage of worldtime:\n")
+		fmt.Fprintf(os.Stderr, "  worldtime [flags] [city1 city2 ...]\n\n")
+		fmt.Fprintf(os.Stderr, "Flags:\n")
+		flag.PrintDefaults()
+		fmt.Fprintf(os.Stderr, "\nExamples:\n")
+		fmt.Fprintf(os.Stderr, "  worldtime                          # Starts the web server\n")
+		fmt.Fprintf(os.Stderr, "  worldtime Waterloo Bangalore       # Compares Waterloo and Bangalore\n")
+		fmt.Fprintf(os.Stderr, "  worldtime -f Bangalore Waterloo Bangalore  # Focuses Bangalore\n")
+	}
+
+	flag.Parse()
+
+	// If no flags/arguments are passed, or if the server flag is explicitly set, run as a server.
+	// Otherwise, run in CLI mode.
+	if len(os.Args) == 1 || serverFlag {
+		runServer()
+		return
+	}
+
+	runCLI(focusFlag, colorFlag, flag.Args())
+}
+
+func runCLI(focusFlag string, colorFlag string, args []string) {
+	var zones []ZoneInfo
+	var resolvedLocs []*time.Location
+
+	if len(args) == 0 {
+		// Use default cities
+		defaultNames := []string{"Local", "UTC", "EST", "CEST", "JST"}
+		for _, name := range defaultNames {
+			if name == "Local" {
+				zones = append(zones, ZoneInfo{Location: time.Local, Name: "Local", FriendlyName: "Local"})
+				resolvedLocs = append(resolvedLocs, time.Local)
+				continue
+			}
+			loc, resolved, err := ResolveLocation(name)
+			if err == nil {
+				zones = append(zones, ZoneInfo{
+					Location:     loc,
+					Name:         resolved,
+					FriendlyName: getFriendlyName(resolved),
+				})
+				resolvedLocs = append(resolvedLocs, loc)
+			}
+		}
+	} else {
+		for _, arg := range args {
+			// Try fuzzy matching city database first
+			if city, ok := findCity(arg); ok {
+				loc, err := time.LoadLocation(city.TZ)
+				if err == nil {
+					zones = append(zones, ZoneInfo{
+						Location:     loc,
+						Name:         city.TZ,
+						FriendlyName: city.Name,
+					})
+					resolvedLocs = append(resolvedLocs, loc)
+					continue
+				}
+			}
+			// Fall back to IANA / abbreviation resolver
+			loc, resolved, err := ResolveLocation(arg)
+			if err == nil {
+				zones = append(zones, ZoneInfo{
+					Location:     loc,
+					Name:         resolved,
+					FriendlyName: getFriendlyName(resolved),
+				})
+				resolvedLocs = append(resolvedLocs, loc)
+			} else {
+				log.Fatalf("Error: Could not resolve timezone or city for %q", arg)
+			}
+		}
+	}
+
+	if len(zones) == 0 {
+		log.Fatalf("Error: No valid timezones to compare.")
+	}
+
+	// Resolve focus location
+	var focusLoc *time.Location
+	if focusFlag != "" {
+		if city, ok := findCity(focusFlag); ok {
+			loc, err := time.LoadLocation(city.TZ)
+			if err == nil {
+				focusLoc = loc
+			}
+		}
+		if focusLoc == nil {
+			loc, _, err := ResolveLocation(focusFlag)
+			if err == nil {
+				focusLoc = loc
+			}
+		}
+		if focusLoc == nil {
+			log.Fatalf("Error: Could not resolve focus timezone or city %q", focusFlag)
+		}
+	} else {
+		focusLoc = resolvedLocs[0]
+	}
+
+	// Resolve color preference
+	useColor := false
+	if colorFlag == "always" {
+		useColor = true
+	} else if colorFlag == "never" {
+		useColor = false
+	} else {
+		// auto: check if stdout is a character device (terminal)
+		fileInfo, err := os.Stdout.Stat()
+		if err == nil {
+			useColor = (fileInfo.Mode() & os.ModeCharDevice) != 0
+		}
+	}
+
+	renderPlaintextTimeline(os.Stdout, focusLoc, zones, useColor)
+}
+
+func runServer() {
 	// Prepare static file server
 	subFS, err := fs.Sub(webFS, "web")
 	if err != nil {
@@ -415,7 +548,8 @@ func handleQueryCurl(w http.ResponseWriter, r *http.Request, tzs []string, frien
 
 	contentType, useColor := detectPlaintextContentTypeAndColorPreference(r)
 	w.Header().Set("Content-Type", contentType)
-	renderPlaintextTimeline(w, r, zones, useColor)
+	focusLoc := getFocusLocation(r, zones)
+	renderPlaintextTimeline(w, focusLoc, zones, useColor)
 }
 
 // handleDefaultCurl renders table for root requests with default zones.
@@ -439,7 +573,8 @@ func handleDefaultCurl(w http.ResponseWriter, r *http.Request) {
 
 	contentType, useColor := detectPlaintextContentTypeAndColorPreference(r)
 	w.Header().Set("Content-Type", contentType)
-	renderPlaintextTimeline(w, r, zones, useColor)
+	focusLoc := getFocusLocation(r, zones)
+	renderPlaintextTimeline(w, focusLoc, zones, useColor)
 }
 
 // detectPlaintextContentTypeAndColorPreference inspects the Accept header to determine:
@@ -534,8 +669,7 @@ func getFocusLocation(r *http.Request, zones []ZoneInfo) *time.Location {
 }
 
 // renderPlaintextTimeline prints the table to the writer.
-func renderPlaintextTimeline(w http.ResponseWriter, r *http.Request, zones []ZoneInfo, useColor bool) {
-	focusLoc := getFocusLocation(r, zones)
+func renderPlaintextTimeline(w io.Writer, focusLoc *time.Location, zones []ZoneInfo, useColor bool) {
 
 	// Base time is the start of the current day in the focused timezone
 	now := time.Now().In(focusLoc)
