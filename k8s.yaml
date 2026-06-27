@@ -18,6 +18,7 @@ spec:
       - name: worldtime
         image: worldtime:latest
         imagePullPolicy: IfNotPresent
+        args: ["--server"]
         ports:
         - containerPort: 8080
         resources:
