@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 )
@@ -96,17 +97,20 @@ func main() {
 		fileServer.ServeHTTP(w, r)
 	})
 
-	port := "8080"
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 	fmt.Printf("WorldTime server running on http://localhost:%s\n", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
 
-// isCurl detects if the request is coming from curl or prefers plain text.
+// isCurl detects if the request is coming from curl, wget, powershell, httpie, or prefers plain text.
 func isCurl(r *http.Request) bool {
-	ua := r.UserAgent()
-	if strings.HasPrefix(ua, "curl/") || strings.Contains(ua, "curl") {
+	ua := strings.ToLower(r.UserAgent())
+	if strings.Contains(ua, "curl") || strings.Contains(ua, "wget") || strings.Contains(ua, "powershell") || strings.Contains(ua, "httpie") {
 		accept := r.Header.Get("Accept")
 		if strings.Contains(accept, "text/html") {
 			return false
@@ -398,8 +402,9 @@ func handleQueryCurl(w http.ResponseWriter, r *http.Request, tzs []string, frien
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	renderPlaintextTimeline(w, zones)
+	contentType, useColor := detectPlaintextContentTypeAndColorPreference(r)
+	w.Header().Set("Content-Type", contentType)
+	renderPlaintextTimeline(w, zones, useColor)
 }
 
 // handleDefaultCurl renders table for root requests with default zones.
@@ -421,8 +426,33 @@ func handleDefaultCurl(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	renderPlaintextTimeline(w, zones)
+	contentType, useColor := detectPlaintextContentTypeAndColorPreference(r)
+	w.Header().Set("Content-Type", contentType)
+	renderPlaintextTimeline(w, zones, useColor)
+}
+
+// detectPlaintextContentTypeAndColorPreference inspects the Accept header to determine:
+// 1. If colors should be enabled (true if Accept contains */*, text/x-ansi, text/ansi, application/x-ansi)
+// 2. The Content-Type header to send back (custom ANSI mime type if matches, otherwise text/plain)
+func detectPlaintextContentTypeAndColorPreference(r *http.Request) (string, bool) {
+	accept := r.Header.Get("Accept")
+	useColor := false
+	contentType := "text/plain; charset=utf-8"
+
+	if strings.Contains(accept, "text/x-ansi") {
+		contentType = "text/x-ansi; charset=utf-8"
+		useColor = true
+	} else if strings.Contains(accept, "text/ansi") {
+		contentType = "text/ansi; charset=utf-8"
+		useColor = true
+	} else if strings.Contains(accept, "application/x-ansi") {
+		contentType = "application/x-ansi; charset=utf-8"
+		useColor = true
+	} else if strings.Contains(accept, "*/*") {
+		useColor = true
+	}
+
+	return contentType, useColor
 }
 
 // getFriendlyName returns a simplified timezone name for display.
@@ -436,7 +466,7 @@ func getFriendlyName(name string) string {
 }
 
 // renderPlaintextTimeline prints the table to the writer.
-func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo) {
+func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor bool) {
 	// Base time is the current time in the first timezone
 	now := time.Now().In(zones[0].Location)
 	nowHour := now.Round(time.Hour)
@@ -485,15 +515,15 @@ func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo) {
 			tTarget := nowHour.Add(time.Duration(offset) * time.Hour).In(z.Location)
 
 			isCurrent := (offset == 0)
-			cell := formatCell(tTarget, isCurrent, nowInZone)
+			cell := formatCell(tTarget, isCurrent, nowInZone, useColor)
 			fmt.Fprintf(w, "%s│", cell)
 		}
 		fmt.Fprintln(w, "\n")
 	}
 }
 
-// formatCell formats the time for the ASCII grid cell.
-func formatCell(tCell time.Time, isCurrent bool, baseDate time.Time) string {
+// formatCell formats the time for the ASCII grid cell, optionally colored with ANSI escape codes.
+func formatCell(tCell time.Time, isCurrent bool, baseDate time.Time, useColor bool) string {
 	timeStr := tCell.Format("15:04")
 
 	// Calculate day difference using calendar dates
@@ -516,12 +546,37 @@ func formatCell(tCell time.Time, isCurrent bool, baseDate time.Time) string {
 		cellContent += "-"
 	}
 
+	var formatted string
 	if isCurrent {
-		return fmt.Sprintf("[%s]", cellContent)
+		formatted = fmt.Sprintf("[%s]", cellContent)
+	} else if dayDiff != 0 {
+		formatted = " " + cellContent
+	} else {
+		formatted = " " + cellContent + " "
 	}
 
-	if dayDiff != 0 {
-		return " " + cellContent
+	if useColor {
+		color := getHourColor(tCell)
+		return color + formatted + "\x1b[0m"
 	}
-	return " " + cellContent + " "
+	return formatted
+}
+
+// getHourColor returns the ANSI escape code corresponding to the hour's category:
+// - Work hours (9 AM - 5 PM): Yellow (\x1b[33m)
+// - Evening hours (5 PM - 10 PM): Light Blue / Cyan (\x1b[36m)
+// - Night hours (10 PM - 6 AM): Dark Blue (\x1b[34m)
+// - Morning hours (6 AM - 9 AM): Light Blue / Cyan (\x1b[36m)
+func getHourColor(t time.Time) string {
+	h := t.Hour()
+	if h >= 9 && h < 17 {
+		return "\x1b[33m" // Yellow (Work hours)
+	}
+	if h >= 17 && h < 22 {
+		return "\x1b[36m" // Light Blue (Cyan) (Evening)
+	}
+	if h >= 6 && h < 9 {
+		return "\x1b[36m" // Light Blue (Cyan) (Morning)
+	}
+	return "\x1b[34m" // Dark Blue (Night)
 }
