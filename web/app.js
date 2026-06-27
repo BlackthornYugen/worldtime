@@ -246,6 +246,46 @@ function getDateTimeInZone(dateObj, hour, timeZone) {
     return new Date(utcTime);
 }
 
+// Get raw offset in minutes for a timezone at a specific date
+function getRawOffsetMinutes(date, timeZone) {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        timeZoneName: 'longOffset'
+    });
+    const parts = formatter.formatToParts(date);
+    const offsetPart = parts.find(p => p.type === 'timeZoneName');
+    if (!offsetPart) return 0;
+    
+    const val = offsetPart.value; // e.g. "GMT-05:00", "GMT+05:30", "GMT"
+    if (val === 'GMT') return 0;
+    
+    const match = val.match(/GMT([+-])(\d+):(\d+)/);
+    if (!match) return 0;
+    
+    const sign = match[1] === '-' ? -1 : 1;
+    const hours = parseInt(match[2], 10);
+    const minutes = parseInt(match[3], 10);
+    return sign * (hours * 60 + minutes);
+}
+
+// Get relative offset string from a base timezone (e.g. +0, +9.5, -6)
+function getRelativeOffsetStr(date, timeZone, baseTimeZone) {
+    const baseMinutes = getRawOffsetMinutes(date, baseTimeZone);
+    const zoneMinutes = getRawOffsetMinutes(date, timeZone);
+    const diffMinutes = zoneMinutes - baseMinutes;
+    const diffHours = diffMinutes / 60;
+    
+    if (diffHours === 0) {
+        return "+0";
+    }
+    const sign = diffHours > 0 ? "+" : "";
+    if (diffHours === Math.round(diffHours)) {
+        return `${sign}${diffHours}`;
+    } else {
+        return `${sign}${diffHours.toFixed(1)}`;
+    }
+}
+
 // Get offset label relative to UTC (e.g. UTC-5, UTC+5.5)
 function getOffsetStr(date, timeZone) {
     const formatter = new Intl.DateTimeFormat('en-US', {
@@ -489,13 +529,8 @@ function render() {
         const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
         const dateText = `${months[selectedParts.month - 1]} ${selectedParts.day}`;
 
-        // Get offset string
-        const offsetVal = getOffsetStr(selectedTimeUTC, tz);
-        
-        // Fetch abbreviation name using browser formatting
-        const formatterAbbr = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' });
-        const abbrParts = formatterAbbr.formatToParts(selectedTimeUTC);
-        const abbrVal = abbrParts.find(p => p.type === 'timeZoneName')?.value || "";
+        // Get relative offset string from the focus timezone
+        const relativeOffsetVal = getRelativeOffsetStr(selectedTimeUTC, tz, firstTz);
 
         // Build HTML for timeline cells (24 hours)
         let hoursHTML = "";
@@ -551,8 +586,7 @@ function render() {
                     <div class="row-meta-info">
                         <div class="zone-details">
                             <span class="zone-name" title="${tz}">${friendlyName}</span>
-                            <span class="zone-abbrev">${abbrVal}</span>
-                            <span class="zone-offset">${offsetVal}</span>
+                            <span class="zone-offset">(${relativeOffsetVal})</span>
                         </div>
                         <div class="zone-date">${dateText}</div>
                     </div>
