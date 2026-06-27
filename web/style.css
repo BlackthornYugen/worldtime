@@ -417,7 +417,7 @@ body {
 
 /* Row Left Card (Timezone Meta info) */
 .row-left {
-    width: 280px;
+    width: 560px;
     padding: 1.25rem;
     border-right: 1px solid var(--border-glass);
     display: flex;
