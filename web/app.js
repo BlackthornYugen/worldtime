@@ -74,39 +74,56 @@ function init() {
     const dd = String(selectedDate.getDate()).padStart(2, '0');
     dateSelect.value = `${yyyy}-${mm}-${dd}`;
 
-    // Read URL query parameters first, then path segments as fallback
-    const queryZones = parseQueryParams();
-    if (queryZones.length > 0) {
-        timezones = queryZones;
+    // Set up event listeners
+    setupEventListeners();
+
+    // Check URL query parameters (legacy fallback) or clean path
+    const path = window.location.pathname;
+    if (path && path !== "/") {
+        fetch(`/api/resolve?path=${encodeURIComponent(path)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.length > 0) {
+                    timezones = data;
+                } else {
+                    loadDefaultTimezones();
+                }
+                finishInit();
+            })
+            .catch(err => {
+                console.error("Error resolving path timezones:", err);
+                loadDefaultTimezones();
+                finishInit();
+            });
     } else {
-        const pathZones = parseUrlPath();
-        if (pathZones.length > 0) {
-            timezones = pathZones;
-            updateUrl();
+        const queryZones = parseQueryParams();
+        if (queryZones.length > 0) {
+            timezones = queryZones;
+            updateUrl(); // upgrade to clean path
         } else {
-            // Default list: client local + UTC + other key zones
-            const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            timezones = [
-                { tz: localZone, friendlyName: "Local" },
-                { tz: "UTC", friendlyName: "UTC" },
-                { tz: "America/New_York", friendlyName: "New York" },
-                { tz: "Europe/Paris", friendlyName: "Paris" },
-                { tz: "Asia/Tokyo", friendlyName: "Tokyo" }
-            ];
+            loadDefaultTimezones();
             updateUrl();
         }
+        finishInit();
     }
+}
 
-    // Set selected hour to current local time of the first zone
+function loadDefaultTimezones() {
+    const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    timezones = [
+        { tz: localZone, friendlyName: "Local", searchTerm: "Local" },
+        { tz: "UTC", friendlyName: "UTC", searchTerm: "UTC" },
+        { tz: "America/New_York", friendlyName: "New York", searchTerm: "America/New_York" },
+        { tz: "Europe/Paris", friendlyName: "Paris", searchTerm: "Europe/Paris" },
+        { tz: "Asia/Tokyo", friendlyName: "Tokyo", searchTerm: "Asia/Tokyo" }
+    ];
+}
+
+function finishInit() {
     if (timezones.length > 0) {
         const parts = getTzParts(new Date(), timezones[0].tz);
         selectedHour = parts.hour;
     }
-
-    // Set up event listeners
-    setupEventListeners();
-
-    // Render list
     render();
 }
 
@@ -130,7 +147,7 @@ function normalizeTzName(str) {
     }).join('/');
 }
 
-// Parse query params (e.g. ?tz=America/New_York&friendlyName=Waterloo)
+// Parse query params (e.g. legacy ?tz=America/New_York&friendlyName=Waterloo)
 function parseQueryParams() {
     const params = new URLSearchParams(window.location.search);
     const tzs = params.getAll("tz");
@@ -141,66 +158,28 @@ function parseQueryParams() {
         const tz = tzs[i];
         if (isValidTimeZone(tz)) {
             const friendlyName = friendlyNames[i] || getFriendlyName(tz);
-            list.push({ tz, friendlyName });
+            list.push({ tz, friendlyName, searchTerm: tz });
         }
     }
     return list;
 }
 
-// Parse timezone list from window pathname (fallback)
-function parseUrlPath() {
-    const path = window.location.pathname;
-    const segments = path.split('/').map(s => s.trim()).filter(s => s !== '');
-    if (segments.length === 0) return [];
-
-    const resolved = [];
-    for (let i = 0; i < segments.length;) {
-        // Try 3 segments (e.g., America/North_Dakota/New_Salem)
-        if (i + 2 < segments.length) {
-            const candidate = segments.slice(i, i + 3).join('/');
-            const normalized = normalizeTzName(candidate);
-            if (isValidTimeZone(normalized)) {
-                resolved.push({ tz: normalized, friendlyName: getFriendlyName(normalized) });
-                i += 3;
-                continue;
-            }
-        }
-        // Try 2 segments (e.g., America/New_York)
-        if (i + 1 < segments.length) {
-            const candidate = segments.slice(i, i + 2).join('/');
-            const normalized = normalizeTzName(candidate);
-            if (isValidTimeZone(normalized)) {
-                resolved.push({ tz: normalized, friendlyName: getFriendlyName(normalized) });
-                i += 2;
-                continue;
-            }
-        }
-        // Try 1 segment
-        const candidate = segments[i];
-        const lower = candidate.toLowerCase();
-        if (AbbreviationMap[lower]) {
-            const tz = AbbreviationMap[lower];
-            resolved.push({ tz, friendlyName: candidate.toUpperCase() });
-        } else {
-            const normalized = normalizeTzName(candidate);
-            if (isValidTimeZone(normalized)) {
-                resolved.push({ tz: normalized, friendlyName: getFriendlyName(normalized) });
-            }
-        }
-        i += 1;
-    }
-    return resolved;
-}
-
-// Update address bar query parameters
+// Update address bar using clean paths
 function updateUrl() {
-    const params = new URLSearchParams();
-    timezones.forEach(item => {
-        params.append("tz", item.tz);
-        params.append("friendlyName", item.friendlyName);
+    if (timezones.length === 0) {
+        history.replaceState(null, '', '/');
+        return;
+    }
+
+    const segments = timezones.map(item => {
+        let term = item.searchTerm || item.tz;
+        if (item.friendlyName && item.friendlyName !== term && item.friendlyName !== getFriendlyName(item.tz)) {
+            return `${term}+as+${item.friendlyName}`;
+        }
+        return term;
     });
-    // Replace URL keeping query parameters
-    const newUrl = window.location.pathname + '?' + params.toString();
+
+    const newUrl = '/' + segments.map(encodeURIComponent).join('/');
     history.replaceState(null, '', newUrl);
 }
 
@@ -426,7 +405,7 @@ function handleSearchInput() {
                             const zone = el.getAttribute("data-zone");
                             const name = el.getAttribute("data-name");
                             if (zone && name) {
-                                addTimezone(zone, name);
+                                addTimezone(zone, name, name);
                             }
                         });
                     });
@@ -440,10 +419,10 @@ function handleSearchInput() {
 }
 
 // Add timezone to list
-function addTimezone(zone, friendlyName) {
+function addTimezone(zone, friendlyName, searchTerm) {
     // Add zone and update layout using View Transitions if available
     updateDOMWithTransition(() => {
-        timezones.push({ tz: zone, friendlyName: friendlyName });
+        timezones.push({ tz: zone, friendlyName: friendlyName, searchTerm: searchTerm || friendlyName });
         updateUrl();
         render();
     });
@@ -573,7 +552,7 @@ function render() {
         }
 
         return `
-            <div class="timezone-row" style="view-transition-name: tz-row-${index}">
+            <div class="timezone-row" style="view-transition-name: tz-row-${index}" data-searchterm="${item.searchTerm || item.friendlyName || item.tz}">
                 <div class="row-left">
                     <i class="fa-solid fa-grip-vertical drag-handle"></i>
                     <div class="row-meta-info">
@@ -640,7 +619,8 @@ function setupDragAndDrop() {
             newRows.forEach(r => {
                 const tz = r.querySelector(".zone-name").getAttribute("title");
                 const friendlyName = r.querySelector(".zone-name").innerText;
-                newZonesList.push({ tz, friendlyName });
+                const searchTerm = r.getAttribute("data-searchterm") || tz;
+                newZonesList.push({ tz, friendlyName, searchTerm });
             });
 
             timezones = newZonesList;

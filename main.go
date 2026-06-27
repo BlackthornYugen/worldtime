@@ -33,9 +33,10 @@ type City struct {
 }
 
 type ZoneInfo struct {
-	Location     *time.Location
-	Name         string // IANA Name
-	FriendlyName string // Custom Display Name
+	Location     *time.Location `json:"-"`
+	Name         string         `json:"tz"`           // IANA Name
+	FriendlyName string         `json:"friendlyName"` // Custom Display Name
+	SearchTerm   string         `json:"searchTerm"`   // Base name for clean URLs
 }
 
 var cities []City
@@ -203,6 +204,7 @@ func runServer() {
 
 	// Register API endpoints before catch-all
 	http.HandleFunc("/api/search", handleSearchAPI)
+	http.HandleFunc("/api/resolve", handleResolveAPI)
 
 	// Main request handler
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -214,7 +216,6 @@ func runServer() {
 			return
 		}
 
-		// Parse query parameters
 		q := r.URL.Query()
 		tzParams := q["tz"]
 		friendlyParams := q["friendlyName"]
@@ -231,10 +232,41 @@ func runServer() {
 			return
 		}
 
-		// 2. If no query parameters but path contains segments, perform fuzzy lookup and redirect
+		// 2. If no query parameters but path contains segments, resolve and display directly for curl, or serve SPA
 		pathSegments := parsePathSegments(path)
 		if len(pathSegments) > 0 {
-			redirectWithResolvedZones(w, r, pathSegments)
+			if isCurl(r) {
+				zones := resolvePathSegments(pathSegments)
+				if len(zones) == 0 {
+					w.WriteHeader(http.StatusBadRequest)
+					fmt.Fprintln(w, "Error: Could not resolve any timezones or cities from path.")
+					return
+				}
+				contentType, useColor := detectPlaintextContentTypeAndColorPreference(r)
+				w.Header().Set("Content-Type", contentType)
+				focusLoc := getFocusLocation(r, zones)
+
+				doubleSpaced := true
+				if dsParam := r.URL.Query().Get("doubleSpaced"); dsParam == "false" || dsParam == "0" {
+					doubleSpaced = false
+				}
+				padding := 2
+				if padParam := r.URL.Query().Get("padding"); padParam != "" {
+					if p, err := strconv.Atoi(padParam); err == nil && p >= 0 {
+						padding = p
+					}
+				}
+				compact := (r.URL.Query().Get("compact") == "true" || r.URL.Query().Get("compact") == "1")
+				if compact {
+					doubleSpaced = false
+					padding = 0
+				}
+				renderPlaintextTimeline(w, focusLoc, zones, useColor, doubleSpaced, padding)
+				return
+			}
+			// Serve SPA HTML for browsers
+			r.URL.Path = "/"
+			fileServer.ServeHTTP(w, r)
 			return
 		}
 
@@ -483,9 +515,19 @@ func findCity(query string) (City, bool) {
 	return City{}, false
 }
 
-// redirectWithResolvedZones fuzzy-matches path segments and redirects to root query format.
-func redirectWithResolvedZones(w http.ResponseWriter, r *http.Request, segments []string) {
-	params := url.Values{}
+// parseSegment handles extracting custom aliases via +as+ or ` as `
+func parseSegment(seg string) (string, string) {
+	s := strings.ReplaceAll(seg, "+as+", " as ")
+	parts := strings.SplitN(s, " as ", 2)
+	if len(parts) == 2 {
+		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+	}
+	return strings.TrimSpace(s), ""
+}
+
+// resolvePathSegments fuzzy-matches path segments and returns the resolved ZoneInfo.
+func resolvePathSegments(segments []string) []ZoneInfo {
+	var zones []ZoneInfo
 
 	for _, seg := range segments {
 		// Unescape path segment
@@ -493,43 +535,62 @@ func redirectWithResolvedZones(w http.ResponseWriter, r *http.Request, segments 
 		if err != nil {
 			unescaped = seg
 		}
+		searchTerm, alias := parseSegment(unescaped)
 
 		// 1. Try fuzzy matching city database first
-		if city, ok := findCity(unescaped); ok {
-			params.Add("tz", city.TZ)
-			params.Add("friendlyName", city.Name)
+		if city, ok := findCity(searchTerm); ok {
+			loc, err := time.LoadLocation(city.TZ)
+			if err == nil {
+				// Use the exact search term they provided, formatted nicely
+				friendly := strings.Title(strings.ReplaceAll(searchTerm, "_", " "))
+				if alias != "" {
+					friendly = alias
+				}
+				zones = append(zones, ZoneInfo{
+					Location:     loc,
+					Name:         city.TZ,
+					FriendlyName: friendly,
+					SearchTerm:   searchTerm,
+				})
+			}
 			continue
 		}
 
 		// 2. Fall back to standard IANA / abbreviation mapping
-		if loc, resolved, err := ResolveLocation(unescaped); err == nil {
-			params.Add("tz", loc.String())
-			params.Add("friendlyName", getFriendlyName(resolved))
+		if loc, resolved, err := ResolveLocation(searchTerm); err == nil {
+			friendly := getFriendlyName(resolved)
+			
+			// If the user typed an abbreviation like EST or a clean name without slashes, use that
+			if !strings.Contains(searchTerm, "/") {
+				if strings.ToUpper(searchTerm) == searchTerm {
+					friendly = searchTerm
+				} else {
+					friendly = strings.Title(strings.ReplaceAll(searchTerm, "_", " "))
+				}
+			}
+
+			if alias != "" {
+				friendly = alias
+			}
+			zones = append(zones, ZoneInfo{
+				Location:     loc,
+				Name:         resolved,
+				FriendlyName: friendly,
+				SearchTerm:   searchTerm,
+			})
 			continue
 		}
 	}
+	return zones
+}
 
-	// If no zones were resolved, return a 400 Bad Request
-	if len(params["tz"]) == 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "Error: Could not resolve any timezones or cities from path.")
-		return
-	}
+func handleResolveAPI(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Query().Get("path")
+	segments := parsePathSegments(path)
+	zones := resolvePathSegments(segments)
 
-	// Redirect to root path with query parameters
-	if focus := r.URL.Query().Get("focus"); focus != "" {
-		params.Set("focus", focus)
-	}
-	redirectURL := "/?" + params.Encode()
-	if isCurl(r) {
-		contentType, _ := detectPlaintextContentTypeAndColorPreference(r)
-		w.Header().Set("Content-Type", contentType)
-		w.Header().Set("Location", redirectURL)
-		w.WriteHeader(http.StatusMovedPermanently)
-		handleQueryCurl(w, r, params["tz"], params["friendlyName"])
-		return
-	}
-	http.Redirect(w, r, redirectURL, http.StatusFound)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(zones)
 }
 
 // handleQueryCurl renders plaintext table for queries with explicit tz & friendlyName parameters.
