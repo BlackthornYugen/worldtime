@@ -553,7 +553,6 @@ func renderPlaintextTimeline(w http.ResponseWriter, r *http.Request, zones []Zon
 
 	for _, z := range zones {
 		nowInZone := time.Now().In(z.Location)
-		dateStr := nowInZone.Format("Jan 02")
 
 		// Calculate minute offset relative to the focused zone
 		minuteDiff := (nowInZone.Minute() - now.Minute() + 60) % 60
@@ -582,8 +581,9 @@ func renderPlaintextTimeline(w http.ResponseWriter, r *http.Request, zones []Zon
 			}
 		}
 
-		// Format left label column using custom FriendlyName
-		labelText := fmt.Sprintf("%s (%s) %s", z.FriendlyName, offsetStr, dateStr)
+		// Format left label column showing current time and name without date
+		timeStr := nowInZone.Format("15:04")
+		labelText := fmt.Sprintf("%s %s (%s)", timeStr, z.FriendlyName, offsetStr)
 		labelPadding := 32
 		if isHalfHourOffset {
 			labelPadding = 29
