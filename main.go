@@ -559,22 +559,26 @@ func renderPlaintextTimeline(w http.ResponseWriter, r *http.Request, zones []Zon
 		minuteDiff := (nowInZone.Minute() - now.Minute() + 60) % 60
 		isHalfHourOffset := (minuteDiff == 30)
 
-		// Get current offset string
-		_, offsetSec := nowInZone.Zone()
-		offsetHours := float64(offsetSec) / 3600.0
+		// Calculate offset relative to focusLoc
+		_, focusSec := now.Zone()
+		_, zoneSec := nowInZone.Zone()
+		diffSec := zoneSec - focusSec
+		diffHours := float64(diffSec) / 3600.0
+
 		var offsetStr string
-		if offsetSec == 0 {
-			offsetStr = "UTC"
+		if diffHours == 0 {
+			offsetStr = "+0"
 		} else {
 			sign := "+"
-			if offsetHours < 0 {
+			val := diffHours
+			if diffHours < 0 {
 				sign = "-"
-				offsetHours = -offsetHours
+				val = -diffHours
 			}
-			if offsetHours == float64(int(offsetHours)) {
-				offsetStr = fmt.Sprintf("UTC%s%d", sign, int(offsetHours))
+			if val == float64(int(val)) {
+				offsetStr = fmt.Sprintf("%s%d", sign, int(val))
 			} else {
-				offsetStr = fmt.Sprintf("UTC%s%.1f", sign, offsetHours)
+				offsetStr = fmt.Sprintf("%s%.1f", sign, val)
 			}
 		}
 
