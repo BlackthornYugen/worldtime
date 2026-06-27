@@ -40,7 +40,7 @@ jobs:
           file: ./Dockerfile
           push: true
           provenance: false # Disable build provenance metadata to avoid containerd multi-platform errors
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ steps.prep.outputs.image }}:latest
             ${{ steps.prep.outputs.image }}:${{ github.sha }}

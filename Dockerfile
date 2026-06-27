@@ -1,5 +1,5 @@
-# Stage 1: Build the statically linked Go binary for linux/amd64 (x86)
-FROM --platform=linux/amd64 golang:1.25-alpine AS builder
+# Stage 1: Build the statically linked Go binary on the host platform
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
 
 WORKDIR /app
 
@@ -10,11 +10,15 @@ RUN go mod download
 # Copy all source files
 COPY . .
 
-# Statically compile the binary for Linux amd64 (x86_64)
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o worldtime .
+# Retrieve target OS and architecture from Docker buildx
+ARG TARGETOS
+ARG TARGETARCH
 
-# Stage 2: Final minimal scratch image for linux/amd64
-FROM --platform=linux/amd64 scratch
+# Statically cross-compile the binary for the target OS and architecture
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-w -s" -o worldtime .
+
+# Stage 2: Final minimal scratch image matching target platform
+FROM scratch
 
 # Copy statically linked binary
 COPY --from=builder /app/worldtime /worldtime

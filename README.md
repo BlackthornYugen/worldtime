@@ -30,7 +30,7 @@ curl -sL http://localhost:8080/Waterloo/London/
 ---
 
 ## 2. Container Build
-To package the app for production, build the static binary inside a multi-stage Docker container targetting `linux/amd64`:
+To package the app for production, build the static binary inside a multi-stage Docker container supporting both `linux/amd64` and `linux/arm64` platform architectures:
 ```bash
 docker build --provenance=false -t worldtime:latest .
 ```
