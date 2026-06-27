@@ -5,7 +5,7 @@ A fast, self-contained world clock and timezone comparison service (inspired by 
 ---
 
 ## Technical Features
-- **Fuzzy City Lookup**: Resolves path-based city names (e.g. `/Waterloo/London/`) using an embedded 33,000+ city database from GeoNames. Re-prioritizes exact name matches over alternate names to avoid incorrect matching.
+- **Fuzzy City Lookup**: Resolves path-based city names (e.g. `/Waterloo/London/`) using an embedded 33,000+ city database from GeoNames. Re-prioritizes exact name matches over alternate names to avoid incorrect matching. For CLI requests, the HTTP `301 Moved Permanently` redirect contains the target page's body so `curl` displays the comparison table immediately without requiring `--location`.
 - **Dynamic Format Negotiation**: Automatically detects requests from command line tools (`curl`, `wget`, PowerShell `Invoke-WebRequest`, `HTTPie`) or requests with `Accept: text/plain` headers, returning the terminal interface instead of the SPA.
 - **Terminal ANSI Color-Coding**: Visually colors hourly cells to categorize parts of the day (Yellow for work hours, Light Blue/Cyan for transition hours, and Dark Blue for night).
   * **Brackets Removal & Red Separator Line**: When colors are enabled, the brackets `[ ]` around the current hour are removed. Instead, the single vertical line `│` directly to the right of the current hour is colored **red**, highlighting the current hour boundary.

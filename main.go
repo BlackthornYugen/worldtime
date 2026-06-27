@@ -366,6 +366,14 @@ func redirectWithResolvedZones(w http.ResponseWriter, r *http.Request, segments 
 
 	// Redirect to root path with query parameters
 	redirectURL := "/?" + params.Encode()
+	if isCurl(r) {
+		contentType, _ := detectPlaintextContentTypeAndColorPreference(r)
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Location", redirectURL)
+		w.WriteHeader(http.StatusMovedPermanently)
+		handleQueryCurl(w, r, params["tz"], params["friendlyName"])
+		return
+	}
 	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
