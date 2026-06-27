@@ -135,7 +135,7 @@ function parseQueryParams() {
     const params = new URLSearchParams(window.location.search);
     const tzs = params.getAll("tz");
     const friendlyNames = params.getAll("friendlyName");
-    
+
     const list = [];
     for (let i = 0; i < tzs.length; i++) {
         const tz = tzs[i];
@@ -154,7 +154,7 @@ function parseUrlPath() {
     if (segments.length === 0) return [];
 
     const resolved = [];
-    for (let i = 0; i < segments.length; ) {
+    for (let i = 0; i < segments.length;) {
         // Try 3 segments (e.g., America/North_Dakota/New_Salem)
         if (i + 2 < segments.length) {
             const candidate = segments.slice(i, i + 3).join('/');
@@ -255,13 +255,13 @@ function getRawOffsetMinutes(date, timeZone) {
     const parts = formatter.formatToParts(date);
     const offsetPart = parts.find(p => p.type === 'timeZoneName');
     if (!offsetPart) return 0;
-    
+
     const val = offsetPart.value; // e.g. "GMT-05:00", "GMT+05:30", "GMT"
     if (val === 'GMT') return 0;
-    
+
     const match = val.match(/GMT([+-])(\d+):(\d+)/);
     if (!match) return 0;
-    
+
     const sign = match[1] === '-' ? -1 : 1;
     const hours = parseInt(match[2], 10);
     const minutes = parseInt(match[3], 10);
@@ -274,7 +274,7 @@ function getRelativeOffsetStr(date, timeZone, baseTimeZone) {
     const zoneMinutes = getRawOffsetMinutes(date, timeZone);
     const diffMinutes = zoneMinutes - baseMinutes;
     const diffHours = diffMinutes / 60;
-    
+
     if (diffHours === 0) {
         return "+0";
     }
@@ -295,10 +295,10 @@ function getOffsetStr(date, timeZone) {
     const parts = formatter.formatToParts(date);
     const offsetPart = parts.find(p => p.type === 'timeZoneName');
     if (!offsetPart) return 'UTC';
-    
+
     let val = offsetPart.value.replace('GMT', 'UTC');
     if (val === 'UTC') return 'UTC';
-    
+
     val = val.replace(/([+-])0(\d)/, '$1$2'); // remove leading zero
     val = val.replace(':00', ''); // remove trailing :00
     return val;
@@ -441,11 +441,6 @@ function handleSearchInput() {
 
 // Add timezone to list
 function addTimezone(zone, friendlyName) {
-    if (timezones.some(item => item.tz === zone)) {
-        showToast("Timezone already added!");
-        return;
-    }
-    
     // Add zone and update layout using View Transitions if available
     updateDOMWithTransition(() => {
         timezones.push({ tz: zone, friendlyName: friendlyName });
@@ -500,19 +495,19 @@ function render() {
     tzListContainer.innerHTML = timezones.map((item, index) => {
         const tz = item.tz;
         const friendlyName = item.friendlyName;
-        
+
         // Find timezone details for the currently SELECTED column hour
         const selectedTimeUTC = hourTimestamps[selectedHour];
         const selectedParts = getTzParts(selectedTimeUTC, tz);
-        
+
         // Find timezone details for the ACTUAL current time
         const nowUTC = new Date();
         const currentParts = getTzParts(nowUTC, tz);
-        
+
         // Format base current display time (left card text)
         const currentHourPad = String(currentParts.hour).padStart(2, '0');
         const currentMinPad = String(currentParts.minute).padStart(2, '0');
-        
+
         let displayTime = "";
         if (is12hFormat) {
             let h12 = currentParts.hour % 12;
@@ -535,10 +530,10 @@ function render() {
         for (let col = 0; col < 24; col++) {
             const cellUTC = hourTimestamps[col];
             const cellParts = getTzParts(cellUTC, tz);
-            
+
             const cellHour = cellParts.hour;
             const cellMin = cellParts.minute;
-            
+
             const isNight = (cellHour < 6 || cellHour >= 18);
             const typeClass = isNight ? "night" : "day";
             const activeClass = (col === selectedHour) ? "active-hour" : "";
@@ -546,7 +541,7 @@ function render() {
             let boundaryClass = "";
             const baseYMD = `${currentParts.year}-${currentParts.month}-${currentParts.day}`;
             const cellYMD = `${cellParts.year}-${cellParts.month}-${cellParts.day}`;
-            
+
             if (cellYMD !== baseYMD) {
                 const cellT = Date.UTC(cellParts.year, cellParts.month - 1, cellParts.day);
                 const baseT = Date.UTC(currentParts.year, currentParts.month - 1, currentParts.day);
@@ -578,7 +573,7 @@ function render() {
         }
 
         return `
-            <div class="timezone-row" draggable="true" style="view-transition-name: tz-row-${index}">
+            <div class="timezone-row" style="view-transition-name: tz-row-${index}">
                 <div class="row-left">
                     <i class="fa-solid fa-grip-vertical drag-handle"></i>
                     <div class="row-meta-info">
@@ -615,16 +610,19 @@ function render() {
 // Drag & Drop reorder implementation
 function setupDragAndDrop() {
     const rows = tzListContainer.querySelectorAll(".timezone-row");
-    
-    rows.forEach((row, idx) => {
-        row.addEventListener('dragstart', (e) => {
-            const path = e.composedPath();
-            const isHandle = path.some(el => el.classList && el.classList.contains('drag-handle'));
-            if (!isHandle) {
-                e.preventDefault();
-                return;
-            }
 
+    rows.forEach((row, idx) => {
+        const handle = row.querySelector('.drag-handle');
+        if (handle) {
+            handle.addEventListener('mousedown', () => {
+                row.setAttribute('draggable', 'true');
+            });
+            handle.addEventListener('mouseup', () => {
+                row.removeAttribute('draggable');
+            });
+        }
+
+        row.addEventListener('dragstart', (e) => {
             dragSrcEl = row;
             row.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
@@ -632,12 +630,13 @@ function setupDragAndDrop() {
         });
 
         row.addEventListener('dragend', () => {
+            row.removeAttribute('draggable');
             row.classList.remove('dragging');
             rows.forEach(r => r.classList.remove('drag-over'));
-            
+
             const newRows = Array.from(tzListContainer.querySelectorAll(".timezone-row"));
             const newZonesList = [];
-            
+
             newRows.forEach(r => {
                 const tz = r.querySelector(".zone-name").getAttribute("title");
                 const friendlyName = r.querySelector(".zone-name").innerText;
@@ -665,13 +664,13 @@ function setupDragAndDrop() {
 
         row.addEventListener('drop', (e) => {
             e.stopPropagation();
-            
+
             if (dragSrcEl !== row) {
                 updateDOMWithTransition(() => {
                     const allRows = Array.from(tzListContainer.querySelectorAll(".timezone-row"));
                     const srcIndex = allRows.indexOf(dragSrcEl);
                     const destIndex = allRows.indexOf(row);
-                    
+
                     if (srcIndex < destIndex) {
                         tzListContainer.insertBefore(dragSrcEl, row.nextSibling);
                     } else {
@@ -694,12 +693,12 @@ setInterval(() => {
         const row = rows[index];
         if (!row) return;
         const timeEl = row.querySelector(".current-time-text");
-        
+
         const nowUTC = new Date();
         const currentParts = getTzParts(nowUTC, item.tz);
         const currentHourPad = String(currentParts.hour).padStart(2, '0');
         const currentMinPad = String(currentParts.minute).padStart(2, '0');
-        
+
         let displayTime = "";
         if (is12hFormat) {
             let h12 = currentParts.hour % 12;
@@ -709,7 +708,7 @@ setInterval(() => {
         } else {
             displayTime = `${currentHourPad}:${currentMinPad}`;
         }
-        
+
         if (timeEl && timeEl.textContent !== displayTime) {
             timeEl.textContent = displayTime;
         }
