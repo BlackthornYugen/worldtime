@@ -125,6 +125,8 @@ body {
 
 /* Controls Panel */
 .controls-panel {
+    position: relative;
+    z-index: 100;
     background: var(--bg-card);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
@@ -247,6 +249,40 @@ body {
 .autocomplete-item .zone-sub {
     font-size: 0.85rem;
     color: var(--text-muted);
+}
+
+.item-options {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.options-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.options-list {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.name-option {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    border-radius: 4px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.name-option:hover {
+    background: var(--accent-indigo);
+    border-color: var(--accent-indigo);
 }
 
 /* Toolbar Controls */

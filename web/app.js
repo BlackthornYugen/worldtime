@@ -388,24 +388,56 @@ function handleSearchInput() {
                 if (matches.length === 0) {
                     autocompleteList.innerHTML = `<div class="autocomplete-item"><span class="zone-title">No timezones found</span></div>`;
                 } else {
-                    autocompleteList.innerHTML = matches.map(item => `
-                        <div class="autocomplete-item" data-zone="${item.zone}" data-name="${item.name}">
-                            <div>
-                                <span class="zone-title">${item.name}</span>
-                                <span class="zone-sub">${item.desc}</span>
-                            </div>
-                            <i class="fa-solid fa-plus" style="color: var(--accent-teal)"></i>
-                        </div>
-                    `).join("");
+                    autocompleteList.innerHTML = matches.map(item => {
+                        const originalName = item.name;
+                        const searchTermExact = val;
 
-                    // Attach click listeners to suggestions
-                    const items = autocompleteList.querySelectorAll(".autocomplete-item");
-                    items.forEach(el => {
-                        el.addEventListener("click", () => {
-                            const zone = el.getAttribute("data-zone");
-                            const name = el.getAttribute("data-name");
+                        // Options set to deduplicate
+                        const options = new Set();
+                        options.add(originalName);
+
+                        // User's exact search string (capitalized nicely)
+                        const searchFormatted = searchTermExact.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                        options.add(searchFormatted);
+
+                        if (item.matchedAlt) {
+                            options.add(item.matchedAlt);
+                        }
+
+                        const optionsHTML = Array.from(options).map(opt => 
+                            `<button class="name-option" data-zone="${item.zone}" data-name="${opt}" data-searchterm="${originalName}">${opt}</button>`
+                        ).join("");
+
+                        return `
+                            <div class="autocomplete-item">
+                                <div style="display: flex; flex-direction: column; width: 100%;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <span class="zone-title">${item.name}</span>
+                                            <span class="zone-sub">${item.desc}</span>
+                                        </div>
+                                    </div>
+                                    <div class="item-options">
+                                        <span class="options-label">Add as:</span>
+                                        <div class="options-list">
+                                            ${optionsHTML}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join("");
+
+                    // Attach click listeners to option buttons
+                    const optionBtns = autocompleteList.querySelectorAll(".name-option");
+                    optionBtns.forEach(btn => {
+                        btn.addEventListener("click", (e) => {
+                            e.stopPropagation();
+                            const zone = btn.getAttribute("data-zone");
+                            const name = btn.getAttribute("data-name");
+                            const searchTerm = btn.getAttribute("data-searchterm");
                             if (zone && name) {
-                                addTimezone(zone, name, name);
+                                addTimezone(zone, name, searchTerm);
                             }
                         });
                     });

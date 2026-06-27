@@ -966,9 +966,10 @@ func getHourColor(t time.Time) string {
 }
 
 type SearchResult struct {
-	Name string `json:"name"`
-	Zone string `json:"zone"`
-	Desc string `json:"desc"`
+	Name       string `json:"name"`
+	Zone       string `json:"zone"`
+	Desc       string `json:"desc"`
+	MatchedAlt string `json:"matchedAlt,omitempty"`
 }
 
 func handleSearchAPI(w http.ResponseWriter, r *http.Request) {
@@ -1023,13 +1024,25 @@ func searchCities(query string) []SearchResult {
 		}
 
 		// Pass 1: Exact matches
-		if cName == qClean || cASCII == qClean {
+		isExact := cName == qClean || cASCII == qClean
+		var matchedAlt string
+		if !isExact {
+			for _, alt := range c.Alt {
+				if strings.ToLower(alt) == qClean {
+					isExact = true
+					matchedAlt = alt
+					break
+				}
+			}
+		}
+		if isExact {
 			key := c.TZ + "#" + c.Name
 			if !seen[key] {
 				exactMatches = append(exactMatches, SearchResult{
-					Name: c.Name,
-					Zone: c.TZ,
-					Desc: desc,
+					Name:       c.Name,
+					Zone:       c.TZ,
+					Desc:       desc,
+					MatchedAlt: matchedAlt,
 				})
 				seen[key] = true
 			}
@@ -1037,13 +1050,25 @@ func searchCities(query string) []SearchResult {
 		}
 
 		// Pass 2: Prefix matches
-		if strings.HasPrefix(cName, qClean) || strings.HasPrefix(cASCII, qClean) {
+		isPrefix := strings.HasPrefix(cName, qClean) || strings.HasPrefix(cASCII, qClean)
+		matchedAlt = ""
+		if !isPrefix {
+			for _, alt := range c.Alt {
+				if strings.HasPrefix(strings.ToLower(alt), qClean) {
+					isPrefix = true
+					matchedAlt = alt
+					break
+				}
+			}
+		}
+		if isPrefix {
 			key := c.TZ + "#" + c.Name
 			if !seen[key] {
 				prefixMatches = append(prefixMatches, SearchResult{
-					Name: c.Name,
-					Zone: c.TZ,
-					Desc: desc,
+					Name:       c.Name,
+					Zone:       c.TZ,
+					Desc:       desc,
+					MatchedAlt: matchedAlt,
 				})
 				seen[key] = true
 			}
@@ -1092,6 +1117,28 @@ func searchCities(query string) []SearchResult {
 						break
 					}
 				}
+				if !matched {
+					// Fall back to checking alternate names
+					for _, alt := range c.Alt {
+						altLower := strings.ToLower(alt)
+						if altLower == token {
+							matched = true
+							matchedAlt = alt
+							break
+						}
+						altWords := strings.Fields(strings.ReplaceAll(strings.ReplaceAll(altLower, "-", " "), ",", " "))
+						for _, w := range altWords {
+							if strings.HasPrefix(w, token) {
+								matched = true
+								matchedAlt = alt
+								break
+							}
+						}
+						if matched {
+							break
+						}
+					}
+				}
 			}
 			if !matched {
 				allMatched = false
@@ -1103,9 +1150,10 @@ func searchCities(query string) []SearchResult {
 			key := c.TZ + "#" + c.Name
 			if !seen[key] {
 				fuzzyMatches = append(fuzzyMatches, SearchResult{
-					Name: c.Name,
-					Zone: c.TZ,
-					Desc: desc,
+					Name:       c.Name,
+					Zone:       c.TZ,
+					Desc:       desc,
+					MatchedAlt: matchedAlt,
 				})
 				seen[key] = true
 			}
