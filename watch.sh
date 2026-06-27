@@ -6,7 +6,7 @@ ARGS=("$@")
 # Clean up on exit
 trap "rm -f $BIN_PATH; pkill -P \$\$; exit" SIGINT SIGTERM
 
-echo "Watching for changes in .go and .json files..."
+echo "Watching for changes in .go, .json, .js, and .html files..."
 
 PID=""
 
@@ -32,8 +32,8 @@ build_and_restart() {
 build_and_restart
 
 while true; do
-    # Wait for the next file change (monitoring .go and .json files)
-    fswatch -1 -r -e ".*" -i "\\.go$" -i "\\.json$" . > /dev/null
+    # Wait for the next file change (monitoring .go, .json, .js, and .html files)
+    fswatch -1 -r -e ".*" -i "\\.go$" -i "\\.json$" -i "\\.js$" -i "\\.html$" . > /dev/null
 
     echo "[watcher] Change detected."
     build_and_restart
