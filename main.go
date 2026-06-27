@@ -365,6 +365,9 @@ func redirectWithResolvedZones(w http.ResponseWriter, r *http.Request, segments 
 	}
 
 	// Redirect to root path with query parameters
+	if focus := r.URL.Query().Get("focus"); focus != "" {
+		params.Set("focus", focus)
+	}
 	redirectURL := "/?" + params.Encode()
 	if isCurl(r) {
 		contentType, _ := detectPlaintextContentTypeAndColorPreference(r)
@@ -412,7 +415,7 @@ func handleQueryCurl(w http.ResponseWriter, r *http.Request, tzs []string, frien
 
 	contentType, useColor := detectPlaintextContentTypeAndColorPreference(r)
 	w.Header().Set("Content-Type", contentType)
-	renderPlaintextTimeline(w, zones, useColor)
+	renderPlaintextTimeline(w, r, zones, useColor)
 }
 
 // handleDefaultCurl renders table for root requests with default zones.
@@ -436,7 +439,7 @@ func handleDefaultCurl(w http.ResponseWriter, r *http.Request) {
 
 	contentType, useColor := detectPlaintextContentTypeAndColorPreference(r)
 	w.Header().Set("Content-Type", contentType)
-	renderPlaintextTimeline(w, zones, useColor)
+	renderPlaintextTimeline(w, r, zones, useColor)
 }
 
 // detectPlaintextContentTypeAndColorPreference inspects the Accept header to determine:
@@ -473,23 +476,86 @@ func getFriendlyName(name string) string {
 	return strings.ReplaceAll(last, "_", " ")
 }
 
+// getSubdomainFocus extracts a valid timezone/city from the request host's subdomain.
+func getSubdomainFocus(host string) (string, bool) {
+	h := host
+	if ip := strings.Index(h, ":"); ip != -1 {
+		h = h[:ip]
+	}
+	parts := strings.Split(h, ".")
+	if len(parts) <= 2 {
+		return "", false
+	}
+	sub := strings.ToLower(parts[0])
+	tokens := strings.Split(sub, "-")
+	for _, token := range tokens {
+		if token == "" || token == "time" || token == "www" || token == "app" || token == "dev" || token == "worldtime" {
+			continue
+		}
+		if city, ok := findCity(token); ok {
+			return city.TZ, true
+		}
+		if _, _, err := ResolveLocation(token); err == nil {
+			return token, true
+		}
+	}
+	return "", false
+}
+
+// getFocusLocation resolves the location that should act as the timeline's anchor.
+func getFocusLocation(r *http.Request, zones []ZoneInfo) *time.Location {
+	if r != nil {
+		// 1. Check subdomain tokens
+		if focusTZ, ok := getSubdomainFocus(r.Host); ok {
+			if loc, _, err := ResolveLocation(focusTZ); err == nil {
+				return loc
+			}
+		}
+
+		// 2. Check query parameter "focus"
+		if focusParam := r.URL.Query().Get("focus"); focusParam != "" {
+			if city, ok := findCity(focusParam); ok {
+				if loc, _, err := ResolveLocation(city.TZ); err == nil {
+					return loc
+				}
+			}
+			if loc, _, err := ResolveLocation(focusParam); err == nil {
+				return loc
+			}
+		}
+	}
+
+	// 3. Fall back to the first timezone in zones
+	if len(zones) > 0 {
+		return zones[0].Location
+	}
+
+	return time.Local
+}
+
 // renderPlaintextTimeline prints the table to the writer.
-func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor bool) {
-	// Base time is the current time in the first timezone
-	now := time.Now().In(zones[0].Location)
-	nowHour := now.Truncate(time.Hour)
+func renderPlaintextTimeline(w http.ResponseWriter, r *http.Request, zones []ZoneInfo, useColor bool) {
+	focusLoc := getFocusLocation(r, zones)
 
-	hoursWindow := 11
-	offsetStart := -5
+	// Base time is the start of the current day in the focused timezone
+	now := time.Now().In(focusLoc)
+	focusDayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, focusLoc)
 
-	fmt.Fprintf(w, "World Time Comparison — %s\n", now.Format("Monday, Jan 2, 2006"))
-	fmt.Fprintln(w, strings.Repeat("—", 122))
+	hoursWindow := 24
+	offsetStart := 0
+
+	focusFriendly := getFriendlyName(focusLoc.String())
+	if (focusFriendly == "Local" || focusFriendly == "Local Time") && len(zones) > 0 {
+		focusFriendly = zones[0].FriendlyName
+	}
+	fmt.Fprintf(w, "World Time Comparison (Focus: %s) — %s\n", focusFriendly, now.Format("Monday, Jan 2, 2006"))
+	fmt.Fprintln(w, strings.Repeat("—", 226))
 
 	for _, z := range zones {
 		nowInZone := time.Now().In(z.Location)
 		dateStr := nowInZone.Format("Jan 02")
 
-		// Calculate minute offset relative to the first (base) zone
+		// Calculate minute offset relative to the focused zone
 		minuteDiff := (nowInZone.Minute() - now.Minute() + 60) % 60
 		isHalfHourOffset := (minuteDiff == 30)
 
@@ -539,7 +605,7 @@ func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor b
 
 		for i := 0; i < localHoursWindow; i++ {
 			offset := localOffsetStart + i
-			tTarget := nowHour.Add(time.Duration(offset) * time.Hour)
+			tTarget := focusDayStart.Add(time.Duration(offset) * time.Hour)
 			if isHalfHourOffset {
 				tTarget = tTarget.Add(30 * time.Minute)
 			}
