@@ -537,11 +537,11 @@ func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor b
 			}
 			tTargetInZone := tTarget.In(z.Location)
 
-			isCurrent := (offset == 0)
+			isCurrent := (tTargetInZone.Hour() == nowInZone.Hour() && tTargetInZone.Day() == nowInZone.Day())
 			cell := formatCell(tTargetInZone, isCurrent, nowInZone, useColor)
 
 			sep := "│"
-			if useColor && offset == 0 {
+			if useColor && isCurrent {
 				sep = "\x1b[31m│\x1b[0m"
 			}
 			if isHalfHourOffset && i == localHoursWindow-1 {
