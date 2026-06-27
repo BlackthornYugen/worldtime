@@ -53,7 +53,7 @@ const AbbreviationMap = {
 let timezones = []; // Array of objects: { tz: string, friendlyName: string }
 let selectedHour = new Date().getHours(); // 0-23
 let selectedDate = new Date(); // Date object
-let is12hFormat = true;
+let is12hFormat = false;
 let dragSrcEl = null;
 
 // DOM Elements
@@ -463,7 +463,11 @@ function render() {
         
         // Find timezone details for the currently SELECTED column hour
         const selectedTimeUTC = hourTimestamps[selectedHour];
-        const currentParts = getTzParts(selectedTimeUTC, tz);
+        const selectedParts = getTzParts(selectedTimeUTC, tz);
+        
+        // Find timezone details for the ACTUAL current time
+        const nowUTC = new Date();
+        const currentParts = getTzParts(nowUTC, tz);
         
         // Format base current display time (left card text)
         const currentHourPad = String(currentParts.hour).padStart(2, '0');
@@ -481,10 +485,9 @@ function render() {
             displayTime = `${currentHourPad}:${currentMinPad}`;
         }
 
-        // Format Date text
+        // Format Date text (using selectedParts to shift date correctly when sliding)
         const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        const targetDateObj = new Date(Date.UTC(currentParts.year, currentParts.month - 1, currentParts.day));
-        const dateText = `${months[currentParts.month - 1]} ${currentParts.day}`;
+        const dateText = `${months[selectedParts.month - 1]} ${selectedParts.day}`;
 
         // Get offset string
         const offsetVal = getOffsetStr(selectedTimeUTC, tz);
@@ -654,3 +657,38 @@ function setupDragAndDrop() {
 
 // Start application
 window.onload = init;
+
+// Periodically update the live clocks in the UI every 15 seconds without full rerenders
+setInterval(() => {
+    const rows = tzListContainer.querySelectorAll(".timezone-row");
+    timezones.forEach((item, index) => {
+        const row = rows[index];
+        if (!row) return;
+        const timeEl = row.querySelector(".current-time-text");
+        const periodEl = row.querySelector(".row-time-display span:nth-child(2)");
+        
+        const nowUTC = new Date();
+        const currentParts = getTzParts(nowUTC, item.tz);
+        const currentHourPad = String(currentParts.hour).padStart(2, '0');
+        const currentMinPad = String(currentParts.minute).padStart(2, '0');
+        
+        let displayTime = "";
+        let displayPeriod = "";
+        if (is12hFormat) {
+            let h12 = currentParts.hour % 12;
+            if (h12 === 0) h12 = 12;
+            const period = currentParts.hour >= 12 ? "PM" : "AM";
+            displayTime = `${String(h12).padStart(2, '0')}:${currentMinPad}`;
+            displayPeriod = ` ${period}`;
+        } else {
+            displayTime = `${currentHourPad}:${currentMinPad}`;
+        }
+        
+        if (timeEl && timeEl.textContent !== displayTime) {
+            timeEl.textContent = displayTime;
+        }
+        if (periodEl && periodEl.textContent !== displayPeriod) {
+            periodEl.textContent = displayPeriod;
+        }
+    });
+}, 15000);
