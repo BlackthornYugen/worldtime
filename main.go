@@ -233,7 +233,11 @@ func runServer() {
 		}
 
 		// 2. If no query parameters but path contains segments, resolve and display directly for curl, or serve SPA
-		pathSegments := parsePathSegments(path)
+		rawPath := r.URL.Path
+		if r.URL.RawPath != "" {
+			rawPath = r.URL.RawPath
+		}
+		pathSegments := parsePathSegments(rawPath)
 		if len(pathSegments) > 0 {
 			if isCurl(r) {
 				zones := resolvePathSegments(pathSegments)
@@ -517,12 +521,11 @@ func findCity(query string) (City, bool) {
 
 // parseSegment handles extracting custom aliases via +as+ or ` as `
 func parseSegment(seg string) (string, string) {
-	s := strings.ReplaceAll(seg, "+as+", " as ")
-	parts := strings.SplitN(s, " as ", 2)
+	parts := strings.SplitN(seg, " as ", 2)
 	if len(parts) == 2 {
 		return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
 	}
-	return strings.TrimSpace(s), ""
+	return strings.TrimSpace(seg), ""
 }
 
 // resolvePathSegments fuzzy-matches path segments and returns the resolved ZoneInfo.
@@ -530,6 +533,11 @@ func resolvePathSegments(segments []string) []ZoneInfo {
 	var zones []ZoneInfo
 
 	for _, seg := range segments {
+		// Treat + as space and +as+ as alias separator, before URL decoding
+		// so that actual %2B can still decode to a literal + if desired.
+		seg = strings.ReplaceAll(seg, "+as+", " as ")
+		seg = strings.ReplaceAll(seg, "+", " ")
+
 		// Unescape path segment
 		unescaped, err := url.PathUnescape(seg)
 		if err != nil {

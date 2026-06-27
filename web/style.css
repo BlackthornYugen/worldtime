@@ -104,8 +104,13 @@ body {
 }
 
 @keyframes rotateGlobe {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .logo h1 {
@@ -417,7 +422,7 @@ body {
 
 /* Row Left Card (Timezone Meta info) */
 .row-left {
-    width: 560px;
+    width: 350px;
     padding: 1.25rem;
     border-right: 1px solid var(--border-glass);
     display: flex;
@@ -487,7 +492,8 @@ body {
     flex-shrink: 0;
 }
 
-.delete-btn, .rename-btn {
+.delete-btn,
+.rename-btn {
     opacity: 0;
     color: var(--text-muted);
     cursor: pointer;
@@ -661,7 +667,7 @@ body {
     body {
         padding: 1rem 0.5rem;
     }
-    
+
     .timezone-row {
         flex-direction: column;
     }
@@ -696,7 +702,7 @@ body {
     .logo h1 {
         font-size: 2rem;
     }
-    
+
     .toolbar {
         flex-direction: column;
         align-items: stretch;

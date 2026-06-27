@@ -167,20 +167,24 @@ function parseQueryParams() {
 // Update address bar using clean paths
 function updateUrl() {
     if (timezones.length === 0) {
-        history.replaceState(null, '', '/');
+        history.replaceState(null, "", "/");
         return;
     }
 
     const segments = timezones.map(item => {
         let term = item.searchTerm || item.tz;
+        let res = term.replace(/\+/g, '%2B').replace(/ /g, '+');
+        
         if (item.friendlyName && item.friendlyName !== term && item.friendlyName !== getFriendlyName(item.tz)) {
-            return `${term}+as+${item.friendlyName}`;
+            let fn = item.friendlyName.replace(/\+/g, '%2B').replace(/ /g, '+');
+            res = `${res}+as+${fn}`;
         }
-        return term;
+        return res;
     });
-
-    const newUrl = '/' + segments.map(encodeURIComponent).join('/');
-    history.replaceState(null, '', newUrl);
+    
+    // update URL
+    const newPath = "/" + segments.join("/");
+    history.replaceState(null, "", newPath);
 }
 
 // Format date into specific parts for timezone math
