@@ -506,20 +506,31 @@ func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor b
 
 		// Format left label column using custom FriendlyName
 		labelText := fmt.Sprintf("%s (%s) %s", z.FriendlyName, offsetStr, dateStr)
-		if len(labelText) < 32 {
-			labelText = labelText + strings.Repeat(" ", 32-len(labelText))
-		} else if len(labelText) > 32 {
-			labelText = labelText[:29] + "..."
+		labelPadding := 32
+		if isHalfHourOffset {
+			labelPadding = 29
+		}
+		if len(labelText) < labelPadding {
+			labelText = labelText + strings.Repeat(" ", labelPadding-len(labelText))
+		} else if len(labelText) > labelPadding {
+			labelText = labelText[:labelPadding-3] + "..."
 		}
 
 		if isHalfHourOffset {
-			fmt.Fprintf(w, "%s      ", labelText)
+			fmt.Fprintf(w, "%s ", labelText)
 		} else {
 			fmt.Fprintf(w, "%s │", labelText)
 		}
 
-		for i := 0; i < hoursWindow; i++ {
-			offset := offsetStart + i
+		localHoursWindow := hoursWindow
+		localOffsetStart := offsetStart
+		if isHalfHourOffset {
+			localHoursWindow = hoursWindow + 1
+			localOffsetStart = offsetStart - 1
+		}
+
+		for i := 0; i < localHoursWindow; i++ {
+			offset := localOffsetStart + i
 			tTarget := nowHour.Add(time.Duration(offset) * time.Hour).In(z.Location)
 
 			isCurrent := (offset == 0)
@@ -529,7 +540,7 @@ func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor b
 			if useColor && offset == 0 {
 				sep = "\x1b[31m│\x1b[0m"
 			}
-			if isHalfHourOffset && i == hoursWindow-1 {
+			if isHalfHourOffset && i == localHoursWindow-1 {
 				sep = ""
 			}
 			fmt.Fprintf(w, "%s%s", cell, sep)
