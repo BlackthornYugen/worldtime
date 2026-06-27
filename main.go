@@ -475,7 +475,7 @@ func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor b
 	offsetStart := -5
 
 	fmt.Fprintf(w, "World Time Comparison — %s\n", now.Format("Monday, Jan 2, 2006"))
-	fmt.Fprintln(w, strings.Repeat("—", 100))
+	fmt.Fprintln(w, strings.Repeat("—", 122))
 
 	for _, z := range zones {
 		nowInZone := time.Now().In(z.Location)
@@ -516,7 +516,12 @@ func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor b
 
 			isCurrent := (offset == 0)
 			cell := formatCell(tTarget, isCurrent, nowInZone, useColor)
-			fmt.Fprintf(w, "%s│", cell)
+
+			sep := "│"
+			if useColor && (offset == -1 || offset == 0) {
+				sep = "\x1b[31m│\x1b[0m"
+			}
+			fmt.Fprintf(w, "%s%s", cell, sep)
 		}
 		fmt.Fprintln(w, "\n")
 	}
@@ -524,7 +529,8 @@ func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor b
 
 // formatCell formats the time for the ASCII grid cell, optionally colored with ANSI escape codes.
 func formatCell(tCell time.Time, isCurrent bool, baseDate time.Time, useColor bool) string {
-	timeStr := tCell.Format("15:04")
+	// Format hour only (no minutes)
+	timeStr := tCell.Format("15")
 
 	// Calculate day difference using calendar dates
 	dayDiff := 0
@@ -546,13 +552,44 @@ func formatCell(tCell time.Time, isCurrent bool, baseDate time.Time, useColor bo
 		cellContent += "-"
 	}
 
+	isHalfHour := (tCell.Minute() == 30)
 	var formatted string
-	if isCurrent {
-		formatted = fmt.Sprintf("[%s]", cellContent)
-	} else if dayDiff != 0 {
-		formatted = " " + cellContent
+
+	if isCurrent && !useColor {
+		// Non-colored current hour needs brackets
+		bracketed := fmt.Sprintf("[%s]", cellContent)
+		if isHalfHour {
+			// Shifted bracketed current hour
+			if len(bracketed) == 4 {
+				formatted = "   " + bracketed // 3 spaces + 4 chars = 7 chars
+			} else {
+				formatted = "  " + bracketed  // 2 spaces + 5 chars = 7 chars
+			}
+		} else {
+			// Standard bracketed current hour
+			if len(bracketed) == 4 {
+				formatted = " " + bracketed + "  " // 1 space + 4 chars + 2 spaces = 7 chars
+			} else {
+				formatted = " " + bracketed + " "  // 1 space + 5 chars + 1 space = 7 chars
+			}
+		}
 	} else {
-		formatted = " " + cellContent + " "
+		// Normal hour (or colored current hour which has no brackets)
+		if isHalfHour {
+			// Shifted 30-minute offset hour
+			if len(cellContent) == 2 {
+				formatted = "    " + cellContent + " " // 4 spaces + 2 digits + 1 space = 7 chars
+			} else {
+				formatted = "    " + cellContent       // 4 spaces + 3 chars = 7 chars
+			}
+		} else {
+			// Standard 00m hour
+			if len(cellContent) == 2 {
+				formatted = " " + cellContent + "    " // 1 space + 2 digits + 4 spaces = 7 chars
+			} else {
+				formatted = " " + cellContent + "   "  // 1 space + 3 chars + 3 spaces = 7 chars
+			}
+		}
 	}
 
 	if useColor {

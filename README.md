@@ -8,8 +8,10 @@ A fast, self-contained world clock and timezone comparison service (inspired by 
 - **Fuzzy City Lookup**: Resolves path-based city names (e.g. `/Waterloo/London/`) using an embedded 33,000+ city database from GeoNames. Re-prioritizes exact name matches over alternate names to avoid incorrect matching.
 - **Dynamic Format Negotiation**: Automatically detects requests from command line tools (`curl`, `wget`, PowerShell `Invoke-WebRequest`, `HTTPie`) or requests with `Accept: text/plain` headers, returning the terminal interface instead of the SPA.
 - **Terminal ANSI Color-Coding**: Visually colors hourly cells to categorize parts of the day (Yellow for work hours, Light Blue/Cyan for transition hours, and Dark Blue for night).
+  * **Brackets Removal**: When colors are enabled, the brackets `[ ]` around the current hour are removed. Instead, the vertical borders enclosing the current hour column are highlighted in **red**.
+  * **Hour-Only Formatting**: Timelines only show hours (e.g. `15` instead of `15:00`). Timezones offset by 30 minutes are shifted by 3 spaces to visually align them in the middle of standard columns.
   > [!NOTE]
-  > ANSI colors are only returned if the client's `Accept` header contains `*/*` (default CLI client behavior) or one of the custom ANSI mime-types: `text/x-ansi`, `text/ansi`, or `application/x-ansi`. Standard `text/plain` requests return uncolored plaintext, ensuring compatibility when piping output to files/log parsers.
+  > ANSI colors and red column borders are only returned if the client's `Accept` header contains `*/*` (default CLI client behavior) or one of the custom ANSI mime-types: `text/x-ansi`, `text/ansi`, or `application/x-ansi`. Standard `text/plain` requests return uncolored plaintext, ensuring compatibility when piping output to files/log parsers.
 - **Statically Compiled Container**: Bundles static web assets (`embed.FS`) and the IANA ZoneInfo database (`time/tzdata`) inside a bare `scratch` container image.
 
 
