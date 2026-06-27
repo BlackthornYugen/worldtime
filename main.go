@@ -469,7 +469,7 @@ func getFriendlyName(name string) string {
 func renderPlaintextTimeline(w http.ResponseWriter, zones []ZoneInfo, useColor bool) {
 	// Base time is the current time in the first timezone
 	now := time.Now().In(zones[0].Location)
-	nowHour := now.Round(time.Hour)
+	nowHour := now.Truncate(time.Hour)
 
 	hoursWindow := 11
 	offsetStart := -5
