@@ -51,6 +51,7 @@ const AbbreviationMap = {
 
 // App state
 let timezones = []; // Array of objects: { tz: string, friendlyName: string }
+let focusTz = null;
 let selectedHour = new Date().getHours(); // 0-23
 let selectedDate = new Date(); // Date object
 let is12hFormat = false;
@@ -68,6 +69,9 @@ const tzListContainer = document.getElementById("tz-list");
 
 // Init application
 function init() {
+    const urlParams = new URLSearchParams(window.location.search);
+    focusTz = urlParams.get("focus");
+
     // Set date input to today
     const yyyy = selectedDate.getFullYear();
     const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
@@ -184,7 +188,11 @@ function updateUrl() {
     
     // update URL
     const newPath = "/" + segments.join("/");
-    history.replaceState(null, "", newPath);
+    let searchParams = "";
+    if (focusTz) {
+        searchParams = "?focus=" + encodeURIComponent(focusTz);
+    }
+    history.replaceState(null, "", newPath + searchParams);
 }
 
 // Format date into specific parts for timezone math
@@ -371,6 +379,19 @@ function renameTimezone(index) {
     }
 }
 
+// Set focus timezone
+function setFocusTimezone(index) {
+    const item = timezones[index];
+    const identifier = item.searchTerm || item.tz;
+    if (focusTz === identifier) {
+        focusTz = null; // Toggle off
+    } else {
+        focusTz = identifier;
+    }
+    updateUrl();
+    render();
+}
+
 let searchTimeout = null;
 
 function handleSearchInput() {
@@ -509,7 +530,12 @@ function render() {
         return;
     }
 
-    const firstTz = timezones[0].tz;
+    let focusZone = timezones[0];
+    if (focusTz) {
+        const found = timezones.find(t => (t.searchTerm === focusTz) || (t.tz === focusTz) || (t.friendlyName === focusTz));
+        if (found) focusZone = found;
+    }
+    const firstTz = focusZone.tz;
     const dateStr = selectedDate.toISOString().split('T')[0];
 
     // Preserve scroll position for smooth centering
@@ -559,6 +585,13 @@ function render() {
 
         // Get relative offset string from the focus timezone
         const relativeOffsetVal = getRelativeOffsetStr(selectedTimeUTC, tz, firstTz);
+
+        let isFocus = false;
+        if (focusTz) {
+            isFocus = (item.searchTerm === focusTz || item.tz === focusTz || item.friendlyName === focusTz);
+        } else {
+            isFocus = (index === 0);
+        }
 
         // Build HTML for timeline cells (24 hours)
         let hoursHTML = "";
@@ -621,6 +654,9 @@ function render() {
                         </div>
                         <div class="zone-date">${dateText}</div>
                     </div>
+                    <button class="focus-btn ${isFocus ? 'active' : ''}" onclick="setFocusTimezone(${index})" title="${isFocus ? 'Currently focused' : 'Set as focus'}">
+                        <i class="fa-solid fa-crosshairs"></i>
+                    </button>
                     <button class="rename-btn" onclick="renameTimezone(${index})" title="Rename timezone">
                         <i class="fa-solid fa-pen"></i>
                     </button>

@@ -493,7 +493,8 @@ body {
 }
 
 .delete-btn,
-.rename-btn {
+.rename-btn,
+.focus-btn {
     opacity: 0;
     color: var(--text-muted);
     cursor: pointer;
@@ -509,7 +510,8 @@ body {
 }
 
 .timezone-row:hover .delete-btn,
-.timezone-row:hover .rename-btn {
+.timezone-row:hover .rename-btn,
+.timezone-row:hover .focus-btn {
     opacity: 1;
 }
 
@@ -518,9 +520,16 @@ body {
     background: rgba(239, 68, 68, 0.1);
 }
 
-.rename-btn:hover {
+.rename-btn:hover,
+.focus-btn:hover:not(.active) {
     color: var(--text-primary);
     background: rgba(255, 255, 255, 0.1);
+}
+
+.focus-btn.active {
+    opacity: 1;
+    color: var(--accent-indigo);
+    background: rgba(99, 102, 241, 0.15);
 }
 
 /* Row Right Card (24 Hours Timeline) */
@@ -679,7 +688,9 @@ body {
         padding: 0.85rem 1.25rem;
     }
 
-    .delete-btn {
+    .delete-btn,
+    .rename-btn,
+    .focus-btn {
         opacity: 1;
     }
 
