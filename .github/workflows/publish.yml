@@ -8,6 +8,8 @@ on:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    env:
+      KUBECONFIG_SECRET: ${{ secrets.KUBECONFIG }}
     permissions:
       contents: read
       packages: write
@@ -46,9 +48,7 @@ jobs:
             ${{ steps.prep.outputs.image }}:${{ github.sha }}
 
       - name: Deploy to Kubernetes
-        if: ${{ secrets.KUBECONFIG != '' }}
-        env:
-          KUBECONFIG_SECRET: ${{ secrets.KUBECONFIG }}
+        if: ${{ env.KUBECONFIG_SECRET != '' }}
         run: |
           echo "${KUBECONFIG_SECRET}" > kubeconfig.yaml
           export KUBECONFIG=kubeconfig.yaml
