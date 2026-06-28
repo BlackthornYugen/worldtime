@@ -64,6 +64,7 @@ const autocompleteList = document.getElementById("autocomplete-list");
 const dateSelect = document.getElementById("date-select");
 const format12hBtn = document.getElementById("format-12h");
 const format24hBtn = document.getElementById("format-24h");
+const sortBtn = document.getElementById("sort-btn");
 const shareBtn = document.getElementById("share-btn");
 const tzListContainer = document.getElementById("tz-list");
 
@@ -350,6 +351,9 @@ function setupEventListeners() {
             showToast("Link copied to clipboard!");
         });
     });
+
+    // Sort timezones button
+    sortBtn.addEventListener("click", sortTimezones);
 }
 
 // Show temporary Toast alerts
@@ -390,6 +394,20 @@ function setFocusTimezone(index) {
     }
     updateUrl();
     render();
+}
+
+// Sort timezones by raw UTC offset
+function sortTimezones() {
+    updateDOMWithTransition(() => {
+        timezones.sort((a, b) => {
+            const offsetA = getRawOffsetMinutes(selectedDate, a.tz);
+            const offsetB = getRawOffsetMinutes(selectedDate, b.tz);
+            return offsetA - offsetB;
+        });
+        
+        updateUrl();
+        render();
+    });
 }
 
 let searchTimeout = null;
