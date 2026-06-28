@@ -60,10 +60,10 @@ func main() {
 	flag.StringVar(&colorFlag, "color", "auto", "ANSI color output: auto (default), always, never")
 	flag.StringVar(&colorFlag, "c", "auto", "ANSI color output (shorthand)")
 	flag.BoolVar(&compactFlag, "compact", false, "Enable compact mode (equivalent to --double-spaced=false --padding=0)")
-	flag.BoolVar(&doubleSpacedFlag, "double-spaced", true, "Double space between rows")
-	flag.BoolVar(&doubleSpacedFlag, "d", true, "Double space between rows (shorthand)")
-	flag.IntVar(&paddingFlag, "padding", 2, "Padding size around hour numbers")
-	flag.IntVar(&paddingFlag, "p", 2, "Padding size around hour numbers (shorthand)")
+	flag.BoolVar(&doubleSpacedFlag, "double-spaced", false, "Double space between rows")
+	flag.BoolVar(&doubleSpacedFlag, "d", false, "Double space between rows (shorthand)")
+	flag.IntVar(&paddingFlag, "padding", 0, "Padding size around hour numbers")
+	flag.IntVar(&paddingFlag, "p", 0, "Padding size around hour numbers (shorthand)")
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage of worldtime:\n")

@@ -68,11 +68,11 @@ func runServer() {
 				w.Header().Set("Content-Type", contentType)
 				focusLoc := getFocusLocation(r, zones)
 
-				doubleSpaced := true
-				if dsParam := r.URL.Query().Get("doubleSpaced"); dsParam == "false" || dsParam == "0" {
-					doubleSpaced = false
+				doubleSpaced := false
+				if dsParam := r.URL.Query().Get("doubleSpaced"); dsParam == "true" || dsParam == "1" {
+					doubleSpaced = true
 				}
-				padding := 2
+				padding := 0
 				if padParam := r.URL.Query().Get("padding"); padParam != "" {
 					if p, err := strconv.Atoi(padParam); err == nil && p >= 0 {
 						padding = p
@@ -187,11 +187,11 @@ func handleQueryCurl(w http.ResponseWriter, r *http.Request, tzs []string, frien
 	w.Header().Set("Content-Type", contentType)
 	focusLoc := getFocusLocation(r, zones)
 
-	doubleSpaced := true
-	if dsParam := r.URL.Query().Get("doubleSpaced"); dsParam == "false" || dsParam == "0" {
-		doubleSpaced = false
+	doubleSpaced := false
+	if dsParam := r.URL.Query().Get("doubleSpaced"); dsParam == "true" || dsParam == "1" {
+		doubleSpaced = true
 	}
-	padding := 2
+	padding := 0
 	if padParam := r.URL.Query().Get("padding"); padParam != "" {
 		if p, err := strconv.Atoi(padParam); err == nil && p >= 0 {
 			padding = p
@@ -229,11 +229,11 @@ func handleDefaultCurl(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", contentType)
 	focusLoc := getFocusLocation(r, zones)
 
-	doubleSpaced := true
-	if dsParam := r.URL.Query().Get("doubleSpaced"); dsParam == "false" || dsParam == "0" {
-		doubleSpaced = false
+	doubleSpaced := false
+	if dsParam := r.URL.Query().Get("doubleSpaced"); dsParam == "true" || dsParam == "1" {
+		doubleSpaced = true
 	}
-	padding := 2
+	padding := 0
 	if padParam := r.URL.Query().Get("padding"); padParam != "" {
 		if p, err := strconv.Atoi(padParam); err == nil && p >= 0 {
 			padding = p
