@@ -178,7 +178,7 @@ function updateUrl() {
 
     const segments = timezones.map(item => {
         let term = item.searchTerm || item.tz;
-        let res = term.replace(/\+/g, '%2B').replace(/ /g, '+');
+        let res = term.replace(/\+/g, '%2B').replace(/ /g, '+').replace(/\//g, '--');
         
         if (item.friendlyName && item.friendlyName !== term && item.friendlyName !== getFriendlyName(item.tz)) {
             let fn = item.friendlyName.replace(/\+/g, '%2B').replace(/ /g, '+');
@@ -443,9 +443,17 @@ function handleSearchInput() {
                 if (matches.length === 0) {
                     autocompleteList.innerHTML = `<div class="autocomplete-item"><span class="zone-title">No timezones found</span></div>`;
                 } else {
-                    autocompleteList.innerHTML = matches.map(item => {
+                    autocompleteList.innerHTML = matches.map((item, index) => {
                         const originalName = item.name;
                         const searchTermExact = val;
+
+                        let generatedSearchTerm = originalName;
+                        // To prevent ambiguity on refresh, if this isn't the primary match for the exact name,
+                        // or if the user typed a more specific query (e.g. "Waterloo Iowa"), 
+                        // use the exact IANA zone to ensure it resolves correctly upon reload.
+                        if (index > 0 || val.toLowerCase() !== originalName.toLowerCase()) {
+                            generatedSearchTerm = item.zone;
+                        }
 
                         // Options set to deduplicate
                         const options = new Set();
@@ -460,7 +468,7 @@ function handleSearchInput() {
                         }
 
                         const optionsHTML = Array.from(options).map(opt => 
-                            `<button class="name-option" data-zone="${item.zone}" data-name="${opt}" data-searchterm="${originalName}">${opt}</button>`
+                            `<button class="name-option" data-zone="${item.zone}" data-name="${opt}" data-searchterm="${generatedSearchTerm}">${opt}</button>`
                         ).join("");
 
                         return `

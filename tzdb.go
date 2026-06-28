@@ -83,6 +83,7 @@ func NormalizeIANAName(name string) string {
 
 // ResolveLocation resolves a string (abbreviation or IANA name) to a time.Location object.
 func ResolveLocation(name string) (*time.Location, string, error) {
+	name = strings.ReplaceAll(name, "--", "/")
 	nameLower := strings.ToLower(name)
 
 	// 1. Check abbreviation map
