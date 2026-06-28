@@ -44,3 +44,17 @@ jobs:
           tags: |
             ${{ steps.prep.outputs.image }}:latest
             ${{ steps.prep.outputs.image }}:${{ github.sha }}
+
+      - name: Deploy to Kubernetes
+        if: ${{ secrets.KUBECONFIG != '' }}
+        env:
+          KUBECONFIG_SECRET: ${{ secrets.KUBECONFIG }}
+        run: |
+          echo "${KUBECONFIG_SECRET}" > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+          
+          helm upgrade --install worldtime ./chart \
+            --namespace github \
+            --set image.tag=${{ github.sha }} \
+            --set image.repository=${{ steps.prep.outputs.image }}
+
