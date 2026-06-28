@@ -315,7 +315,7 @@ func getSubdomainFocus(host string) (string, bool) {
 	sub := strings.ToLower(parts[0])
 	tokens := strings.Split(sub, "-")
 	for _, token := range tokens {
-		if token == "" || token == "time" || token == "www" || token == "app" || token == "dev" || token == "worldtime" {
+		if token == "" || token == "time" || token == "www" || token == "app" || token == "dev" || token == "worldtime" || token == "main" || token == "staging" || token == "prod" {
 			continue
 		}
 		if city, ok := findCity(token); ok {
