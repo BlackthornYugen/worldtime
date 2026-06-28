@@ -602,8 +602,12 @@ function render() {
             const cellHour = cellParts.hour;
             const cellMin = cellParts.minute;
 
-            const isNight = (cellHour < 6 || cellHour >= 18);
-            const typeClass = isNight ? "night" : "day";
+            let typeClass = "night";
+            if (cellHour >= 9 && cellHour < 17) {
+                typeClass = "work";
+            } else if ((cellHour >= 17 && cellHour < 22) || (cellHour >= 6 && cellHour < 9)) {
+                typeClass = "transition";
+            }
             const activeClass = (col === selectedHour) ? "active-hour" : "";
 
             let boundaryClass = "";
