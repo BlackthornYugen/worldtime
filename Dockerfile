@@ -14,8 +14,12 @@ COPY . .
 ARG TARGETOS
 ARG TARGETARCH
 
+# Inject version and repo from build args
+ARG VERSION="dev"
+ARG REPO_URL="unknown"
+
 # Statically cross-compile the binary for the target OS and architecture
-RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-w -s" -o worldtime .
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-w -s -X 'main.Version=${VERSION}' -X 'main.RepoURL=${REPO_URL}'" -o worldtime .
 
 # Stage 2: Final minimal scratch image matching target platform
 FROM scratch

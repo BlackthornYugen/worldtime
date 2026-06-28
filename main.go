@@ -41,6 +41,9 @@ type ZoneInfo struct {
 
 var cities []City
 
+var Version string = "dev"
+var RepoURL string = "unknown"
+
 func init() {
 	// Parse the embedded cities dataset
 	if err := json.Unmarshal(citiesJSON, &cities); err != nil {
@@ -285,12 +288,21 @@ func runServer() {
 		fileServer.ServeHTTP(w, r)
 	})
 
+	// Inject custom headers for Version and Repository
+	injectHeaders := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Server", fmt.Sprintf("worldtime/%s", Version))
+			w.Header().Set("Link", fmt.Sprintf("<%s>; rel=\"repository\"", RepoURL))
+			next.ServeHTTP(w, r)
+		})
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 	fmt.Printf("WorldTime server running on http://localhost:%s\n", port)
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := http.ListenAndServe(":"+port, injectHeaders(http.DefaultServeMux)); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
