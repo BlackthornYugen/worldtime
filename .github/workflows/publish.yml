@@ -50,7 +50,7 @@ jobs:
             REPO_URL=${{ github.server_url }}/${{ github.repository }}
           tags: |
             ${{ steps.prep.outputs.image }}:latest
-            ${{ steps.prep.outputs.image }}:${{ github.sha }}
+            ${{ steps.prep.outputs.image }}:${{ github.sha }}-${{ github.ref_name }}
             ${{ github.ref_type == 'tag' && format('{0}:{1}', steps.prep.outputs.image, github.ref_name) || '' }}
 
       - name: Deploy to Kubernetes
@@ -68,6 +68,6 @@ jobs:
           
           helm upgrade --install ${RELEASE_NAME} ./chart \
             --namespace github \
-            --set image.tag=${{ github.sha }} \
+            --set image.tag=${{ github.sha }}-${{ github.ref_name }} \
             --set image.repository=${{ steps.prep.outputs.image }}
 
