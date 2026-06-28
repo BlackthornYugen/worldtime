@@ -104,7 +104,7 @@ func renderPlaintextTimeline(w io.Writer, focusLoc *time.Location, zones []ZoneI
 			fmt.Fprintf(w, "%s%s", cell, sep)
 		}
 		if doubleSpaced {
-			fmt.Fprintln(w, "")
+			fmt.Fprint(w, "\n\n")
 		} else {
 			fmt.Fprintln(w)
 		}
