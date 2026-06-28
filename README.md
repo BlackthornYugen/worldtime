@@ -17,89 +17,29 @@ A fast, self-contained world clock and timezone comparison service (inspired by 
 
 ---
 
-## 1. Local Development
-To run the server locally:
+## Usage
+
+### Via `curl`
+
+You can fetch the time comparison directly in your terminal using `curl`:
+
 ```bash
-go run .
-```
-Open `http://localhost:8080` in your browser or run:
-```bash
-curl -sL http://localhost:8080/Waterloo/London/
-```
-
----
-
-## 2. Container Build
-To package the app for production, build the static binary inside a multi-stage Docker container supporting both `linux/amd64` and `linux/arm64` platform architectures:
-```bash
-docker build --provenance=false -t worldtime:latest .
-```
-> [!IMPORTANT]
-> The `--provenance=false` flag is critical to disable build attestations. Without this, the generated manifest list will fail when imported directly into standard `containerd` environments.
-
----
-
-## 3. Remote Node Transfer
-If your Kubernetes cluster runs on a remote node (e.g., `ubuntu.jskw.dev`) and you import images locally rather than pushing to a registry:
-
-1. **Save the image** as a tarball:
-   ```bash
-   docker save worldtime:latest | pv > latest.tar
-   ```
-
-2. **Transfer** it to the remote cluster node:
-   ```bash
-   rsync -vaz latest.tar ubuntu.jskw.dev:/tmp/latest.tar
-   ```
-
-3. **Import** the image directly into containerd's Kubernetes namespace (`k8s.io`):
-   ```bash
-   ssh ubuntu.jskw.dev "sudo ctr --namespace k8s.io images import /tmp/latest.tar"
-   ```
-
----
-
-## 4. Kubernetes Deployment
-
-We provide a pre-configured [k8s.yaml](./k8s.yaml) manifest containing both the Deployment and Service.
-
-### Option A: Using the Manifest File (Recommended)
-This approach sets up resource limits and configures `imagePullPolicy: IfNotPresent` to prevent Kubernetes from trying to pull the image from Docker Hub.
-```bash
-kubectl apply -f k8s.yaml
+curl https://time.jskw.dev/Waterloo/Campinas/York/Stuttgart/Bengaluru+as+Bangalor\?focus\=York
 ```
 
-### Option B: Using Ad-hoc `kubectl` Commands
-If you prefer deploying purely via the command-line interface:
+### Via Docker
 
-1. **Create the Deployment**:
-   ```bash
-   kubectl create deployment worldtime --image=worldtime:latest --port=8080
-   ```
+You can run the pre-built container image. Note that you either need to use the `-t` flag with `docker run` or pass `--color always` to the container to get ANSI colors in the output.
 
-2. **Patch the image pull policy** (required because the `:latest` tag defaults to `Always`, which fails for locally imported images):
-   ```bash
-   kubectl patch deployment worldtime -p '{"spec":{"template":{"spec":{"containers":[{"name":"worldtime","imagePullPolicy":"IfNotPresent"}]}}}}'
-   ```
+```bash
+docker run -t ghcr.io/blackthornyugen/worldtime:latest Waterloo Campinas York Stuttgart Bangalore
+```
 
-3. **Expose the Deployment** as a service:
-   ```bash
-   kubectl expose deployment worldtime --port=80 --target-port=8080
-   ```
-
----
-
-## Standalone CLI Mode Usage
+### Standalone CLI Mode
 
 You can run the binary directly in your terminal to print comparison timelines directly to stdout and exit:
 
 ```bash
-# Start the web server (Default behavior when no arguments are provided)
-go run .
-
-# Force start the web server
-go run . --server
-
 # Compare Waterloo and Bangalore (Kolkata) using the first city as focus
 go run . Waterloo Bangalore
 
@@ -108,6 +48,24 @@ go run . -f Bangalore Waterloo Bangalore
 
 # Disable colors in stdout
 go run . -c never Waterloo Bangalore
+```
+
+### Local Server Development
+
+To run the web server locally:
+
+```bash
+# Start the web server (Default behavior when no arguments are provided)
+go run .
+
+# Force start the web server
+go run . --server
+```
+
+Open `http://localhost:8080` in your browser or test the API via `curl`:
+
+```bash
+curl -sL http://localhost:8080/Waterloo/London/
 ```
 
 ---
