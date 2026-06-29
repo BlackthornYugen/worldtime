@@ -521,15 +521,19 @@ body {
 }
 
 .rename-btn:hover,
-.focus-btn:hover:not(.active) {
+.focus-btn:hover {
     color: var(--text-primary);
     background: rgba(255, 255, 255, 0.1);
 }
 
-.focus-btn.active {
-    opacity: 1;
+.timezone-row.is-focus {
+    border-color: rgba(99, 102, 241, 0.3);
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.timezone-row.is-focus .zone-name {
     color: var(--accent-indigo);
-    background: rgba(99, 102, 241, 0.15);
+    font-weight: 600;
 }
 
 /* Row Right Card (24 Hours Timeline) */

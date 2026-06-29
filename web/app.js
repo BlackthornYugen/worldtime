@@ -673,7 +673,7 @@ function render() {
         }
 
         return `
-            <div class="timezone-row" style="view-transition-name: tz-row-${index}" data-searchterm="${item.searchTerm || item.friendlyName || item.tz}">
+            <div class="timezone-row ${isFocus ? 'is-focus' : ''}" style="view-transition-name: tz-row-${index}" data-searchterm="${item.searchTerm || item.friendlyName || item.tz}">
                 <div class="row-left">
                     <i class="fa-solid fa-grip-vertical drag-handle"></i>
                     <div class="row-meta-info" style="display: flex; gap: 0.5rem; align-items: center; flex: 1;">
@@ -684,9 +684,11 @@ function render() {
                         </div>
                         <div class="zone-date">${dateText}</div>
                     </div>
-                    <button class="focus-btn ${isFocus ? 'active' : ''}" onclick="setFocusTimezone(${index})" title="${isFocus ? 'Currently focused' : 'Set as focus'}">
+                    ${!isFocus ? `
+                    <button class="focus-btn" onclick="setFocusTimezone(${index})" title="Set as focus">
                         <i class="fa-solid fa-crosshairs"></i>
                     </button>
+                    ` : ''}
                     <button class="rename-btn" onclick="renameTimezone(${index})" title="Rename timezone">
                         <i class="fa-solid fa-pen"></i>
                     </button>
