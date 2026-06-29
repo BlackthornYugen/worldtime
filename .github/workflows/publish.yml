@@ -44,7 +44,8 @@ jobs:
         run: |
           echo "version=$(git describe --tags --always --dirty)" >> "$GITHUB_OUTPUT"
 
-      - name: Build and Push Docker image
+      - name: Build and Push Docker image (Main branch)
+        if: github.ref_type == 'branch'
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -57,8 +58,29 @@ jobs:
             REPO_URL=${{ github.server_url }}/${{ github.repository }}
           tags: |
             ${{ steps.prep.outputs.image }}:latest
+            ${{ steps.prep.outputs.image }}:${{ github.sha }}
             ${{ steps.prep.outputs.image }}:${{ github.sha }}-${{ github.ref_name }}
-            ${{ github.ref_type == 'tag' && format('{0}:{1}', steps.prep.outputs.image, github.ref_name) || '' }}
+
+      - name: Tag existing image (Tags)
+        if: github.ref_type == 'tag'
+        run: |
+          IMAGE_SHA="${{ steps.prep.outputs.image }}:${{ github.sha }}"
+          echo "Waiting for $IMAGE_SHA to be available..."
+          for i in {1..30}; do
+            if docker buildx imagetools inspect $IMAGE_SHA > /dev/null 2>&1; then
+              echo "Image found!"
+              break
+            fi
+            echo "Waiting 10 seconds..."
+            sleep 10
+          done
+          
+          # This will fail if the image still isn't available after 5 minutes, which is intended.
+          docker buildx imagetools create \
+            $IMAGE_SHA \
+            -t ${{ steps.prep.outputs.image }}:${{ github.sha }}-${{ github.ref_name }} \
+            -t ${{ steps.prep.outputs.image }}:${{ github.ref_name }} \
+            -t ${{ steps.prep.outputs.image }}:latest
 
       - name: Deploy to Kubernetes
         if: ${{ env.KUBECONFIG_SECRET != '' }}
