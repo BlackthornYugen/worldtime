@@ -57,7 +57,7 @@ jobs:
             VERSION=${{ steps.version.outputs.version }}
             REPO_URL=${{ github.server_url }}/${{ github.repository }}
           tags: |
-            ${{ steps.prep.outputs.image }}:latest
+            ${{ steps.prep.outputs.image }}:dev
             ${{ steps.prep.outputs.image }}:${{ github.sha }}
             ${{ steps.prep.outputs.image }}:${{ github.sha }}-${{ github.ref_name }}
 
