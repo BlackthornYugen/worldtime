@@ -33,7 +33,7 @@ build_and_restart
 
 while true; do
     # Wait for the next file change (monitoring .go, .json, .js, and .html files)
-    fswatch -1 -r -e ".*" -i "\\.go$" -i "\\.json$" -i "\\.js$" -i "\\.html$" . > /dev/null
+    fswatch -1 -r -e ".*" -i "\\.css$" -i "\\.go$" -i "\\.json$" -i "\\.js$" -i "\\.html$" . > /dev/null
 
     echo "[watcher] Change detected."
     build_and_restart
